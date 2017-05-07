@@ -1,0 +1,11 @@
+Create a time series based momentum strategy that will rank instruments based off their return in their last X ticks.
+
+X is the lookback period to be determined during testing.
+
+The return will be calculated like as follows, (endPrice - StartPrice)/StartPrice, in other words it is the percentage increased of the price at the start of the lookback
+period. After the instruments have been ranked, we will long the top decile for Y ticks, and short the bottom decile for Y ticks.
+
+Y the amount of ticks which will be optimized during testing.
+
+This strategy can be combined with other mean reversion strategies, i.e if a SMA of a stock crosses the top band and it's in the top decile of returns, then long the instrument,
+and short the poisiton for the reverse situation.

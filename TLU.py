@@ -34,10 +34,7 @@ class TLU(object):
 		self.parsedLogic = self.parseLogicBlocks()
 		self.rulesVerdict = self.applyRules()
 		self.functionsVerdict = self.applyFunctions()
-
 		self.voterInstance = self.Voter(self.rulesVerdict, self.functionsVerdict, self.MMU_DATA)
-		self.voterVerdict = self.voterInstance.posDecision
-		# du.pushData(self.parsedLogic, self.rulesVerdict, self.voterVerdict) (once DU.y is done)
 
 	def mount(self, varType, newVar):
 
@@ -85,9 +82,13 @@ class TLU(object):
 			
 			self.rfVerdict = rules*functions
 			self.mmuData = mmuData
+			
+			self.buyThreshold = None
+			self.sellThreshold = None
+
 			self.posDecision = self.vote()
 
-		def setThreshold(thresholdType, newThreshold): 
+		def setThreshold(self, thresholdType, newThreshold): 
 
 			if (thresholdType == 'BUY'):
 				self.buyThreshold = newThreshold
@@ -113,5 +114,8 @@ class TLU(object):
 			return str(self.posDecision)
 
 	def __str__(self):
-		return str(self.voterVerdict)
+
+		voterVerdict = self.voterInstance.posDecision
+		# du.pushData(self.parsedLogic, self.rulesVerdict, voterVerdict) (once DU.py is done)
+		return str(voterVerdict)
 		

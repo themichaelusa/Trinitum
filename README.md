@@ -29,7 +29,7 @@ The Zen of Python
 ## TODO FOR V1.1:
 
 - [ ] Finish/Test basic Order Management Unit (OMU.py : Michael) 
-- [ ] Start Money Management Unit (MMU.py : Not Assinged)
+- [ ] Start Money Management Unit (MMU.py : Shovik)
 - [ ] Start Diagnostics Unit (DU.py : Not Assinged)
 - [ ] Start Pipeline Unit (PLU.py : Not Assinged)
 - [ ] Refactor for modularity (replace redundant code, streamline, use OOP, etc...)

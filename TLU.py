@@ -19,15 +19,28 @@ Flow:
 
 Output: (-1/0/1) ----> (SELL/HOLD/BUY)
 """
+class Strategy(object):
 
-class TLU(object):
-
-	def __init__(self, data, blocks, rules, funcs = None):
-
-		self.data = data
+	def __init__(self, blocks, rules, funcs = None):
+		
 		self.blocks = blocks
 		self.rules = rules
 		self.funcs = funcs
+
+	def mount(self, varType, newVar):
+
+		if (varType == 'LOGIC'): self.blocks = newVar
+		if (varType == 'RULES'): self.rules = newVar
+		if (varType == 'FUNC'): self.funcs = newVar
+
+class TLU(object):
+
+	def __init__(self, data, strategy):
+
+		self.data = data
+		self.blocks = strategy.blocks
+		self.rules = strategy.rules
+		self.funcs = strategy.funcs
 
 		self.MMU_DATA = True # temporary until MMU Module is built
 		# self.MMU_DATA = mmu.getTickUpdate() (what it'll look like once MMU.py is done)
@@ -35,13 +48,6 @@ class TLU(object):
 		self.rulesVerdict = self.applyRules()
 		self.functionsVerdict = self.applyFunctions()
 		self.voterInstance = self.Voter(self.rulesVerdict, self.functionsVerdict, self.MMU_DATA)
-
-	def mount(self, varType, newVar):
-
-		if (varType == 'DATA'): self.data = newVar
-		if (varType == 'LOGIC'): self.blocks = newVar
-		if (varType == 'RULES'): self.rules = newVar
-		if (varType == 'FUNC'): self.funcs = newVar
 
 	def set(self, opType, *args): #add more if statements as time goes on (for modularity)
 		
@@ -63,10 +69,10 @@ class TLU(object):
 			return 1
 
 		elif (self.parsedLogic in self.rules[1]):
-			return 0
+			return -1
 
 		elif (self.parsedLogic in self.rules[2]):
-			return -1
+			return 0
 
 	def applyFunctions(self):
 
@@ -113,9 +119,8 @@ class TLU(object):
 		def __str__(self):
 			return str(self.posDecision)
 
-	def __str__(self):
+	def getPos(self):
 
 		voterVerdict = self.voterInstance.posDecision
 		# du.pushData(self.parsedLogic, self.rulesVerdict, voterVerdict) (once DU.py is done)
 		return str(voterVerdict)
-		

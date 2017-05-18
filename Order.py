@@ -28,7 +28,7 @@ class OrderQueue(object):
         
         self.orders = []
         self.tradingMode = tradingMode
-        # self.mmuData = mmu.getFeed()
+        # self.mmuData = mmu.getFeed() 
 
     def fillPlacedOrders(self): 
         
@@ -44,8 +44,11 @@ class OrderQueue(object):
         self.orders.append(item)
 
     def dequeue(self):
-    	# if (plu.orderSuccessfullyPlaced):
-        return self.orders.pop()
+    	
+        if (self.tradingMode == "BT"):
+            return self.orders.pop()
+
+        if (self.tradingMode == "RT"): pass
 
     def size(self):
         return len(self.orders)

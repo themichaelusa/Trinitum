@@ -116,11 +116,5 @@ class TLU(object):
 			elif (self.rfVerdict <= -1 and MMU_ALLCLEAR):
 				return -1
 
-		def __str__(self):
-			return str(self.posDecision)
-
 	def getPos(self):
-
-		voterVerdict = self.voterInstance.posDecision
-		# du.pushData(self.parsedLogic, self.rulesVerdict, voterVerdict) (once DU.py is done)
-		return str(voterVerdict)
+		return self.voterInstance.posDecision

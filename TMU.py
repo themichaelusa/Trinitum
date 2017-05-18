@@ -6,33 +6,14 @@ import TLU as tlu
 
 class TMU(object):
 
-	def __init__(self, currentTLU, orderQueue, positionCache):
+	def __init__(self, tradingType):
 		
-		self.TLU_VERDICT = currentTLU.getPos()
-		self.orderQueue = orderQueue
-		self.positionCache = positionCache
+		self.TLU_VERDICT = cst.NOT_SET
+		self.orderQueue = omu.OrderQueue(tradingType)
+		self.positionCache = pmu.PositionCache()
 
 	def updateTLU(self, updatedTLU):
 		self.TLU_VERDICT = updatedTLU.getPos()
-
-	def onCurrentTick(self, newTLU, currPrice, currTime, ticker = None, quantity = None): 
-		
-		self.updateTLU(newTLU)
-		if (ticker != None and quantity != None):
-			self.placeOrder(ticker, quantity)
-
-		orderList = self.orderQueue.fillPlacedOrders()
-		exitPositionTuple = self.positionCache.checkCache(newTLU)
-		
-		if (exitPositionTuple == False or len(orderList) == 0): 
-			pass
-		
-		else: 
-			exitPos, exitPosIndex = exitPositionTuple[0], exitPositionTuple[1]
-			exitPos.setExitParams(currPrice, currTime)
-			self.positionCache.removePosition(exitPosIndex)
-			# du.addToPositionBook(exitPos)
-			return exitPos
 
 	def placeOrder(self, ticker, quantity):
 
@@ -42,33 +23,24 @@ class TMU(object):
 				newOrder = omu.Order(self.TLU_VERDICT, ticker, quantity)
 				self.orderQueue.enqueue(newOrder)
 
-			if (self.orderQueue.tradingMode == "RT"): 
-				pass
+			if (self.orderQueue.tradingMode == "RT"): pass
 
-def buy(data): 
-	if (data[0] == 0): return 1
-	else: return 0
+	def onCurrentTick(self, updatedTLU, portfolio, currentTime): 
+		
+		self.updateTLU(updatedTLU)
+		if (self.TLU_VERDICT == 0): return cst.CURRENT_TICK_HOLD
+		
+		if (self.TLU_VERDICT == 1): # temporary, must support both long/short
+			for unit in portfolio.units:
+				self.placeOrder(unit.ticker, unit.quantity)
 
-def sell(data): 
-	if (data[0] == 1): return 1
-	else: return 0
+		orderList = self.orderQueue.fillPlacedOrders()
 
-data, newData = (0, 1), (1,1)
-blocks = (buy, sell)
-rules = ('10', '01', '00')
+		if (orderList != []):
+			self.positionCache.addPositions(orderList, currentTime)
+			
+		exitPositionsList = self.positionCache.checkCache(self.TLU_VERDICT)
+		if (exitPositionsList == []): return cst.NO_EXIT_POSITIONS
 
-strat = tlu.Strategy(blocks, rules)
-testTLU = tlu.TLU(data, strat)
-testOQ = omu.OrderQueue("BT")
-testPC = pmu.PositionCache()
-testTMU = TMU(testTLU, testOQ, testPC)
-
-testTMU.placeOrder("AMD", 100)
-testTMU.placeOrder("GM", 44)
-testTMU.placeOrder("TSLA", 987)
-testTMU.placeOrder("NVDA", 12)
-
-orderList = testTMU.orderQueue.fillPlacedOrders()
-testTMU.positionCache.addPositions(orderList, utl.getCurrentTime())
-print(testTMU.positionCache.checkCache(1))
+		return self.positionCache.exitPositions(exitPositionsList, currentTime)
 

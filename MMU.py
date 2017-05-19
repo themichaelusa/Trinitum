@@ -30,8 +30,5 @@ class MMU(object):
     def deposit():
         'need actual account address, but pretty simple, will just call withdraw from the polniex API wrapper
         pass
-class Deposit(object):
-	def __init__(self, arg):
-		self.arg = arg
 
 

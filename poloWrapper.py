@@ -92,6 +92,6 @@ class poloniex:
     def sell(self, currencyPair, rate, amount):
         return self.api_query('sell', {"currencyPair": currencyPair, "rate": rate, "amount": amount})
 
-
     def withdraw(self, currency, amount, address):
         return self.api_query('withdraw', {"currency": currency, "amount": amount, "address": address})
+

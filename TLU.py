@@ -56,11 +56,7 @@ class TLU(object):
 
 	def parseLogicBlocks(self):
 
-		entryLogic = ''
-
-		for i in range(len(self.blocks)):
-			entryLogic += str(self.blocks[i](self.data))
-
+		entryLogic = [str(block(self.data)) for block in self.blocks]
 		return ((''.join(entryLogic)))
 
 	def applyRules(self): 
@@ -118,3 +114,13 @@ class TLU(object):
 
 	def getPos(self):
 		return self.voterInstance.posDecision
+
+class Init_TLU(object):
+	
+	def __init__(self):
+		self.INIT_VALUE = 0
+
+	def getPos(self):
+		return self.INIT_VALUE
+
+		

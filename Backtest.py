@@ -1,9 +1,12 @@
+import Portfolio as pfl
 import Position as pmu 
 import CONST as cst
 import UTILS as utl
 import Order as omu 
 import TLU as tlu
 import TMU as tmu
+
+import pandas as pd
 
 class Backtest(object):
 
@@ -15,17 +18,23 @@ class Backtest(object):
 
 		self.capital = capital
 		self.commision = commision
+		# self.positionsToLog = []
 
-	def addStopLoss(self, ticker, upperlower, trailing): pass
-	def exportAdditionalDiagnostics(self, exportBool): pass
+	def addStopLoss(self, ticker, value, trailing): pass
+	def exportAdditionalDiagnostics(self): pass
 
 	def run(self, startDate, endDate): 
 
 		backtestTMU = tmu.TMU("BT")
 		backtestTMU.updateTLU(cst.INIT_TMU)
-		allTLUResults = [tlu.TLU(tickData, self.strategy) for tickData in self.data]
+		allTLUResults = (tlu.TLU(tickData, self.strategy) for tickData in self.data)
 
-		for currentTLU in allTLUResults:
+		def onCurrentTickWrapper(portf, currTLU):
 
-			currentTime = utl.getCurrentTime() # temporary
-			currentTick = backtestTMU.onCurrentTick(currentTLU, currentTime)
+			currentTime = utl.getCurrentTime()
+			return backtestTMU.onCurrentTick(currTLU, portf, currentTime)
+		
+		positionsToLog = [onCurrentTickWrapper(self.portfolio, cTLU) for cTLU in allTLUResults]
+		#filteredPositions = 
+
+

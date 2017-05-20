@@ -15,7 +15,7 @@ class Unit(object):
 		self.quantity = quantity
 		self.priority = priority
 		
-class Portfolio(object):
+class Universe(object):
 
 	def __init__(self):
 		self.units = []

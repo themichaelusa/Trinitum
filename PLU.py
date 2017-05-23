@@ -1,4 +1,4 @@
-import Constants as cst
+import CONST as cst
 import poloWrapper as pw
 import googFinanceWrapper as gf
 import talibWrapper as tbw

@@ -1,4 +1,4 @@
-import Constants as cst
+import CONST as cst
 import PLU as plu
 
 class Position(object):

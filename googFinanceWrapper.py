@@ -63,14 +63,6 @@ def getGoogleIntradayData(ticker, interval, lookback, end_time = time.time()):
     datesToReturn = df['datetime']
     df = df.set_index('datetime')
 
-    talibInputs = {
-    'open': np.asarray(df["open"].tolist()),
-    'high': np.asarray(df["high"].tolist()),
-    'low': np.asarray(df["low"].tolist()),
-    'close': np.asarray(df["close"].tolist()),
-    'volume': np.asarray(df["volume"].tolist())
-    }
-
-    return (df, datesToReturn, talibInputs)
+    return (df, datesToReturn)
 
 

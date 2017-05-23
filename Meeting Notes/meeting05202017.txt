@@ -1,8 +1,8 @@
 
 amdHist = HistoricalData("AMD, 300)
 amdHist.generateIndicator("RSI", 600)
-histData = universe.generateHistoricalData()
-techIndicator = universe.generateTechnicalIndicator("RSI", 600)
+histData = portfolio.generateHistoricalData()
+techIndicator = portfolio.generateTechnicalIndicator("RSI", 600)
 
 Notes:
 

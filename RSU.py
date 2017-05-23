@@ -1,4 +1,4 @@
-import Constants as cst
+import CONST
 import numpy as np
 
 
@@ -17,7 +17,7 @@ class RSU(object):
 
         excess = 0
         for items in returns:
-            excess = (items - cst.DAILY_RISK_FREE_RATE) + excess
+            excess = (items - CONST.DAILY_RISK_FREE_RATE) + excess
 
         avg_excess = excess / len(returns)
         std_return = np.std(returns)

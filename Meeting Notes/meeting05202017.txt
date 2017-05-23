@@ -1,0 +1,18 @@
+
+amdHist = HistoricalData("AMD, 300)
+amdHist.generateIndicator("RSI", 600)
+histData = universe.generateHistoricalData()
+techIndicator = universe.generateTechnicalIndicator("RSI", 600)
+
+Notes:
+
+Shovik's Tasks:
+
+- Figure out Python Packaging (Things should be in folders that we import, not individual files)
+- Separate System/Repo for monitoring our Poloniex Acct. Activity
+- Sort out the MMU.py and RMU.py
+
+Michael's Tasks:
+
+- Finish PLU.py, Universe.py, Backtest.py
+- Figure out naming conventions for methods/functions in Universe, Backtest, etc.

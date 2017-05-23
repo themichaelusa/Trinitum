@@ -1,5 +1,5 @@
 import Backtest as bt
-import Portfolio as pfl
+import Portfolio as uni
 import Position as pmu 
 import Order as omu 
 import poloWrapper as pw
@@ -23,8 +23,8 @@ blocks = (buy, sell)
 rules = ('10', '01', '00')
 strategy = tlu.Strategy(blocks, rules)
 
-portfolio = pfl.Portfolio()
-portfolio.addUnit("BTC", 5, 100)
-backtest = bt.Backtest(data, portfolio, strategy, 100000, .01)
+universe = uni.Universe()
+universe.addUnit("BTC", 5, 100)
+backtest = bt.Backtest(data, universe, strategy, 100000, .01)
 results = backtest.run("20170401", "20170516")
 print(results)

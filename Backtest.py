@@ -18,7 +18,6 @@ class Backtest(object):
 
 		self.capital = capital
 		self.commision = commision
-		# self.positionsToLog = []
 
 	def addStopLoss(self, ticker, value, trailing): pass
 	def exportAdditionalDiagnostics(self): pass
@@ -27,8 +26,12 @@ class Backtest(object):
 
 		backtestTMU = tmu.TMU("BT")		
 		backtestTMU.updateTLU(cst.INIT_TMU)
-		backtestPLU = plu.PLU(self.data, self.universe, self.universe.frequency, startDate, endDate)
-		allTLUResults = (tlu.TLU(tickData, self.strategy) for tickData in self.data)
+
+		backtestPLU = plu.PLU(self.data, self.universe, startDate, endDate)
+		backtestPLU.unpackWrappers(self.universe)
+		formattedData = backtestPLU.generateDatasets()
+
+		allTLUResults = (tlu.TLU(tickData, self.strategy) for tickData in formattedData)
 
 		def onCurrentTickWrapper(universe, currTLU):
 
@@ -37,5 +40,3 @@ class Backtest(object):
 		
 		positionsToLog = [onCurrentTickWrapper(self.universe, cTLU) for cTLU in allTLUResults]
 		#filteredPositions = 
-
-

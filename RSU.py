@@ -1,4 +1,4 @@
-import CONST
+from . import CONST
 import numpy as np
 
 
@@ -46,6 +46,9 @@ class RSU(object):
 
         return win_prob - ((1-win_prob)/win_loss_ratio)
 
-    def getMaxDrawdown
+    def getMaxDrawdown(self):
+        maximum = max(self.data)
+        minimum = min(self.data)
 
+        return (maximum - minimum) / maximum
 

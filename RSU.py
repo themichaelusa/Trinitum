@@ -1,4 +1,4 @@
-from . import CONST
+from import CONST
 import numpy as np
 
 
@@ -11,6 +11,7 @@ class RSU(object):
         self.data = data
 
     def getSharpeRatio(self):
+        
         returns = []
         for i in range(1,len(self.data)):
             returns[i-1] = (self.data[i]-self.data[i-1])/self.data[i-1]
@@ -25,12 +26,14 @@ class RSU(object):
         return (avg_excess/std_return)*np.sqrt(252)
 
     def getKellyCriterion(self):
+        
         wins = 0
         losses = 0
         avg_gain = 0
         avg_loss = 0
 
         for i in range(1,len(self.data)):
+
             if(self.data[i] > self.data[i-1]):
                 wins += 1
                 avg_gain += self.data[i] - self.data[i-1]

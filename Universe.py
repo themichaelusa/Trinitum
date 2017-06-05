@@ -26,13 +26,13 @@ class HistoricalDataWrapper(object):
 
 class TechnicalIndicatorWrapper(object):
 
- 	def __init__(self, ticker = None, indicator, frequency, indArgs):
+ 	def __init__(self, indicator, frequency, indArgs, ticker):
  		
  		self.ticker = ticker
  		self.indicator = indicator
  		self.frequency = frequency
  		self.indicatorArgs = indArgs
-
+		
 class Universe(object):
 
 	def __init__(self):
@@ -50,10 +50,10 @@ class Universe(object):
 		self.frequency = frequency
 		return [HistoricalDataWrapper(unit.ticker, frequency) for unit in self.units]
 
-	def generateTechnicalIndicator(self, ticker = None, indicator, frequency = self.frequency, *args): 
-		
-		if (ticker == None):
-			dataTuple = (indicator, frequency)
-			return [TechnicalIndicatorWrapper(unit.ticker, *dataTuple, args) for unit in self.units]
+	def generateTechnicalIndicator(self, indicator, lag, *args, ticker = None): 
 
-		return TechnicalIndicatorWrapper(ticker, indicator, frequency, args)
+		if (ticker == None):
+			dataTuple = (indicator, lag)
+			return [TechnicalIndicatorWrapper(*dataTuple, args, unit.ticker) for unit in self.units]
+
+		return TechnicalIndicatorWrapper(indicator, lag, args, ticker)

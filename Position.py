@@ -14,11 +14,19 @@ class Position(object):
 
 		self.exitPrice = cst.NOT_SET
 		self.exitTime = cst.NOT_SET
+		self.returns = cst.NOT_SET
+		self.tradingWindow = cst.NOT_SET
+		self.gain = cst.NOT_SET
 
 	def setExitParams(self, exitPrice, exitTime):
 
 		self.exitPrice = exitPrice
 		self.exitTime = exitTime
+
+		self.gain = exitPrice - self.entryPrice
+		percentReturn = exitPrice/entryPrice
+		if (percentReturn >= 1): self.returns = percentReturn
+		else: self.returns = -1*percentReturn 
 
 class PositionCache(object):
 
@@ -35,7 +43,7 @@ class PositionCache(object):
 
 		if (TLU_INPUT == 0): return
 		exitPositions = list(filter(lambda x: (x.posType*-1 == TLU_INPUT), self.currentPositions))
-		return [ePos.ID for ePos in exitPositions] # returns ID's of positions to be exited
+		return [ePos.ID for ePos in exitPositions] #returns ID's of positions to be exited
 
 	def exitPositions(self, positionIDS, currentTime):
 		
@@ -50,4 +58,3 @@ class PositionCache(object):
 
 		return finishedPositions
 
-	

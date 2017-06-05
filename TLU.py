@@ -50,9 +50,7 @@ class TLU(object):
 		self.voterInstance = self.Voter(self.rulesVerdict, self.functionsVerdict, self.MMU_DATA)
 
 	def set(self, opType, *args): #add more if statements as time goes on (for modularity)
-		
-		if (opType == "thres"):
-			self.voterInstance.setThreshold(*args)
+		if (opType == "thres"): self.voterInstance.setThreshold(*args)
 
 	def parseLogicBlocks(self):
 
@@ -63,18 +61,14 @@ class TLU(object):
 
 		if (self.parsedLogic in self.rules[0]):
 			return 1
-
 		elif (self.parsedLogic in self.rules[1]):
 			return -1
-
 		elif (self.parsedLogic in self.rules[2]):
 			return 0
 
 	def applyFunctions(self):
 
-		if (self.funcs == None):
-			return 1;
-
+		if (self.funcs == None): return 1
 		funcOutputs = [(self.funcs[i](self.data)) for i in self.funcs]
 		return math.abs(sum(funcOutputs))
 
@@ -100,15 +94,12 @@ class TLU(object):
 		def vote(self):
 
 			MMU_ALLCLEAR = self.mmuData
-			if (not MMU_ALLCLEAR): 
-				return 0
+			if (not MMU_ALLCLEAR): return 0
 
 			elif (self.rfVerdict >= 1 and MMU_ALLCLEAR):
 				return 1
-
 			elif (self.rfVerdict == 0 and MMU_ALLCLEAR):
 				return 0
-
 			elif (self.rfVerdict <= -1 and MMU_ALLCLEAR):
 				return -1
 

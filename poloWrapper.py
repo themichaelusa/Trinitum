@@ -1,15 +1,25 @@
 import urllib
 import urllib.request as urllib2
+import requests
 import json
 import time
 import hmac, hashlib
+import pandas as pd
 
+def getCryptoHistoricalData(currencyPair, startDate, endDate, period):
+
+    URL = 'https://poloniex.com/public'
+    POLONIEX_HISTORICAL_DATA = URL + '?command=returnChartData&currencyPair={}&start={}&end={}&period={}'
+    poloniexJsonURL = POLONIEX_HISTORICAL_DATA.format(currencyPair, startDate, endDate, period)
+    poloniexJson = requests.get(poloniexJsonURL).json()
+
+    return pd.DataFrame.from_records(poloniexJson)
 
 def createTimeStamp(datestr, format="%Y-%m-%d %H:%M:%S"):
     return time.mktime(time.strptime(datestr, format))
 
-
 class poloniex:
+
     def __init__(self, APIKey, Secret):
         self.APIKey = APIKey
         self.Secret = Secret

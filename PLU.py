@@ -3,56 +3,69 @@ import poloWrapper as pw
 import googFinanceWrapper as gf
 import talibWrapper as tbw
 import Universe as uni
-import Utilities as ult
-import pandas as pd
+import Utilities as utl
+import itertools
 
-def pullSpotPrice(ticker):
-	return 5 # temp		
+def pullSpotPrice(ticker): # temporary
+	return 5 		
 
 class PLU(object):
 	
 	def __init__(self, data, universe, startDate, endDate, tradingType):
 		
-		self.data = list(data)
-		self.tradingType = tradingType
-		self.tradingFreq = universe.frequency
+		self.data = utl.flattenList(data) 
 		self.startDate = startDate
 		self.endDate = endDate
 
+		self.tradingType = tradingType
+		self.tradingFreq = universe.frequency
 		self.techIndicatorWrapData = []
 		self.unitsHistDataObjects = []
-		self.techIndHistDataObjects = []
 
-	def pullSpotPrice(self, tickers, index):
-
+	"""def pullSpotPrice(self, tickers, index):
+					
 		if (self.tradingType == "BT"):
-			return # temp, will return 		
+			return # temp, will return """		
 
 	def unpackWrappers(self, universe): 
 
 		if (self.tradingType == "BT"):
 
 			dateParams = (self.startDate, self.endDate)
-			histWrappers = list(filter(lambda x: isinstance(x, uni.HistoricalDataWrapper), self.data))
-			histDataObjects = [plu.HistoricalData(unit.ticker, unit.frequency, *dateParams) for unit in histWrappers]
+			histWrappers = utl.filterListByType(self.data, uni.HistoricalDataWrapper)
+			histDataObjects = [HistoricalData(unit.ticker, unit.frequency, *dateParams) for unit in histWrappers]
 			self.unitsHistDataObjects.extend(histDataObjects)
 
-			techIndWrappers = list(set(self.data) - set(histWrappers))
+			techIndWrappers = utl.filterListByType(self.data, uni.TechnicalIndicatorWrapper)
 			if (techIndWrappers == [] or techIndWrappers == None): return
-			self.techIndicatorWrapData.extend([(t.indicator, t.indicatorArgs) for t in techIndWrappers])
-			techIndHDObjects = [plu.HistoricalData(unit.ticker, unit.frequency, *dateParams) for unit in techIndWrappers]
-			self.techIndHistDataObjects.extend(techIndHDObjects)
+			self.techIndicatorWrapData.extend([(t.indicator, t.frequency, *t.indicatorArgs) for t in techIndWrappers])
 
 	def generateDatasets(self): 
 
 		histData = [unit.histData for unit in self.unitsHistDataObjects]
-		technicalIndHistData = [unit.histData for unit in self.techIndHistDataObjects]
-		technicalIndicatorsDicts = [tbw.generateInputDict(unit) for unit in technicalIndHistData]
+		if (self.techIndicatorWrapData == []): return histData
+		technicalIndicatorsDicts = [tbw.generateInputDict(unit) for unit in histData]
 
-		techIndicatorParams = list(zip(technicalIndicatorsDicts, self.techIndicatorWrapData))
-		technicalIndicators = [u.pullTechnicalIndicator(*unit) for unit in techIndicatorParams]
+		rawTechInd = []
+		for unit in technicalIndicatorsDicts:
+			for wrapData in self.techIndicatorWrapData:
+				rawTechInd.append((unit, *wrapData, self.tradingFreq))
 
-		return tuple(reduce(lambda t1, t2: t1 + t2, (histData, technicalIndicators)))
+		technicalIndicators = [pullTechnicalIndicator(*raw) for raw in rawTechInd]
+		flattenedIndicators = utl.flattenList(technicalIndicators)
+		return utl.flattenList((histData, flattenedIndicators))
+
+	def formatToTickDatasets(self, datasets):
+
+		historicalData, technicalIndicators = datasets 
+		historicalTicks, indicatorTicks = [], []
+		
+		for t in historicalData:
+			historicalTicks.append((t['close'], t['volume']))
+
+		# add iteration for tech indicators
+		# join both lists via datatime into tick by tick dataframe
+		# return formatted dataframe 
 
 class HistoricalData(object):
 
@@ -60,27 +73,27 @@ class HistoricalData(object):
 
 		self.ticker = ticker
 		self.frequency = frequency
-		self.poloniex = cst.NOT_SET
 		self.histData = self.pullHistoricalData(startDate, endDate)
-		
+
 	def pullHistoricalData(self, startDate, endDate): 
 
 		if (self.ticker in cst.CRYPTO_TICKERS):
 			
-			self.poloniex = pw.poloniex(*cst.POLO_PUBLIC_API)
 			crypTicker = cst.CRYPTO_TICKERS[self.ticker]
-			queryFields = {crypTicker, startDate, endDate, self.frequency}
-			poloniexJson = self.poloniex.api_query("returnChartData", queryFields)
-
-			return pd.DataFrame.from_records(poloniexJson)
+			unixPeriod = (utl.dateToUNIX(startDate), utl.dateToUNIX(endDate))
+			queryFields = (crypTicker, *unixPeriod, self.frequency)
+			return pw.getCryptoHistoricalData(*queryFields)
 
 		else:
 
-			period = utl.datetimeDiff(endDate, startDate)
-			return gf.getGoogleIntradayData(ticker, self.frequency, period) 
+			formattedStart, formattedEnd = utl.stringToDatetime(startDate), utl.stringToDatetime(endDate) 
+			period = utl.datetimeDiff(formattedStart, formattedEnd)
+			return gf.getGoogleIntradayData(self.ticker, self.frequency, period) 
 			 
-	def pullTechnicalIndicator(self, init, indicator, tbArgs): 
+def pullTechnicalIndicator(init, indicator, lag, tbArgs, tradingFreq): 
 
-		talibWrapper = tbw.TalibHistWrapper(init, *tbArgs)
-		return talibWrapper.getIndicator(indicator)
-
+	talibWrapper = tbw.TalibHistWrapper(init, tbArgs)
+	technicalIndicator = talibWrapper.getIndicator(indicator)
+	extensionMultiplier = lag//tradingFreq
+	if (extensionMultiplier <= 1): return technicalIndicator
+	return [utl.extendList(ind, extensionMultiplier) for ind in technicalIndicator]

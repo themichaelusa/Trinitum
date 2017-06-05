@@ -1,4 +1,4 @@
-import Portfolio as pfl
+import Universe as uni
 import Position as pmu 
 import CONST as cst
 import Utilities as utl
@@ -20,6 +20,7 @@ class Backtest(object):
 		self.commision = commision
 
 	def addStopLoss(self, ticker, value, trailing): pass
+	def addRiskStatistic(self, rStat): pass
 	def exportAdditionalDiagnostics(self): pass
 
 	def run(self, startDate, endDate): 
@@ -30,8 +31,9 @@ class Backtest(object):
 		backtestPLU = plu.PLU(self.data, self.universe, startDate, endDate)
 		backtestPLU.unpackWrappers(self.universe)
 		formattedData = backtestPLU.generateDatasets()
+		tickDataset = backtestPLU.formatToTickDatasets(formattedData)
 
-		allTLUResults = (tlu.TLU(tickData, self.strategy) for tickData in formattedData)
+		allTLUResults = (tlu.TLU(tickData, self.strategy) for tickData in tickDataset)
 
 		def onCurrentTickWrapper(universe, currTLU):
 

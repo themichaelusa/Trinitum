@@ -1,6 +1,4 @@
-from import CONST
 import numpy as np
-
 
 #As of now, the data parameter is an array of the end of day balances of the account
 #Kelly Criterion has a different interpretation as of now, since we're only trading one equity
@@ -50,8 +48,13 @@ class RSU(object):
         return win_prob - ((1-win_prob)/win_loss_ratio)
 
     def getMaxDrawdown(self):
+        
         maximum = max(self.data)
         minimum = min(self.data)
 
         return (maximum - minimum) / maximum
+
+    def getAllStats(self):
+    	dict = {'Sharpe' : getSharpeRatio(), 'KellyCriterion' : getKellyCriterion, 'maxDrawdown' : getMaxDrawdown()}
+    	return dict
 

@@ -1,6 +1,0 @@
-A high frequency marketing making strategy which will require us to become market makers. We essentially make a bunch of "fake" bids, incrementally lowered each time, until we can
-get the highest possible bid price for a given consumer.
-
-Additional profits can be drawn from market maker rebates, which certain exchanges like derebrit offer.
-
-This is just a concept for now, more research needs to be done on HFT before we proceed with this.

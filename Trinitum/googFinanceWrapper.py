@@ -1,22 +1,17 @@
+
 import time
 import datetime
-import itertools
 import pandas as pd
-import numpy as np
 import codecs
 import requests
 import csv
 import io
 import pytz
-import urllib.request
-import matplotlib as mpl
 
-PROTOCOL = 'http://'
-BASE_URL = 'www.google.com/finance/getprices'
+BASE_URL = 'http://www.google.com/finance/getprices'
 
 def getGoogleIntradayData(ticker, interval, lookback, end_time = time.time()):
 
-    resource_url = PROTOCOL + BASE_URL
     payload = {
         'q': ticker,
         'i': str(interval),
@@ -25,7 +20,7 @@ def getGoogleIntradayData(ticker, interval, lookback, end_time = time.time()):
         'f': 'd,o,h,l,c,v'
     }
 
-    r = requests.get(resource_url, params = payload)
+    r = requests.get(BASE_URL, params = payload)
     quotes = []
 
     with io.BytesIO(r.content) as csvfile:
@@ -63,6 +58,6 @@ def getGoogleIntradayData(ticker, interval, lookback, end_time = time.time()):
     datesToReturn = df['datetime']
     df = df.set_index('datetime')
 
-    return (df, datesToReturn)
+    return df
 
 

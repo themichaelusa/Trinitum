@@ -152,7 +152,7 @@ class TradingInstance(object):
 	DatabaseManager object in the start function.
 	"""
 	def createLoggerInstance(self, logName):
-		from Diagnostics import Logger
+		from .Diagnostics import Logger
 		self.logger = Logger(logName)
 
 	"""
@@ -166,8 +166,8 @@ class TradingInstance(object):
 		self.initTradingTable()
 		self.initBookTables()
 
-		from Strategy import Strategy
-		from DatabaseManager import DatabaseManager
+		from .Strategy import Strategy
+		from .DatabaseManager import DatabaseManager
 		entryConditions, exitConditions = stratFuncs
 		strat = Strategy(stratName, entryConditions, exitConditions)
 		self.databaseManager = DatabaseManager(self.dbRef, self.conn, strat, self.auth, self.logger)
@@ -175,9 +175,9 @@ class TradingInstance(object):
 
 	def run(self, endTime, histInterval, histPeriod, endCode): 
 
-		from Pipeline import Pipeline
-		from Constants import GDAX_TO_POLONIEX
-		from Utilities import dateToUNIX, getCurrentDateStr, datetimeDiff, getCurrentTimeUNIX
+		from .Pipeline import Pipeline
+		from .Constants import GDAX_TO_POLONIEX
+		from .Utilities import dateToUNIX, getCurrentDateStr, datetimeDiff, getCurrentTimeUNIX
 
 		plInstance, histData = Pipeline(histInterval), None
 		endTimeUNIX = dateToUNIX(endTime)
@@ -194,7 +194,7 @@ class TradingInstance(object):
   			while (endTimeUNIX > getCurrentTimeUNIX()):
   				self.runSystemLogic()
 		except BaseException as e:
-			from Utilities import getStackTrace
+			from .Utilities import getStackTrace
 			stackTrace = getStackTrace(e)
 			self.logger.addEvent('system', ('INSTANCE_CRASH: ' + str(e)))
 			self.logger.addEvent('system', ('INSTANCE_CRASH_STACKTRACE: ' + str(stackTrace)))
@@ -211,7 +211,7 @@ class TradingInstance(object):
 		self.databaseManager.write("pipeline", "updateTechIndicators", self.techInds, self.indicatorLag)
 		self.databaseManager.read("pipeline", "pullPipelineData")
 		stratData = self.databaseManager.processTasks()
-		spotPrice = stratData[0]
+		spotPrice = stratData['price']
 
 		self.databaseManager.read("strategy", "tryEntryStrategy", stratData)
 		self.databaseManager.read("strategy", "tryExitStrategy", stratData)
@@ -244,7 +244,7 @@ class TradingInstance(object):
 	"""
 	def end(self, endCode): 
 
-		from Constants import SOFT_EXIT, HARD_EXIT
+		from .Constants import SOFT_EXIT, HARD_EXIT
 
 		if (endCode == SOFT_EXIT): 
 			try:
@@ -253,7 +253,7 @@ class TradingInstance(object):
 				while (int(tradingRef.count().run(self.conn)) > 0):
 					self.runSystemLogic()
 			except BaseException as e:
-				from Utilities import getStackTrace
+				from .Utilities import getStackTrace
 				stackTrace = getStackTrace(e)
 				self.logger.addEvent('system', ('SOFT_EXIT_FAILURE: ' + str(e)))
 				self.logger.addEvent('system', ('SOFT_EXIT_FAILURE_STACKTRACE: ' + str(stackTrace)))
@@ -269,7 +269,7 @@ class TradingInstance(object):
 				self.databaseManager.write('books', 'addToOrderBook', filledExitOrders)
 				self.databaseManager.processTasks()
 			except BaseException as e:
-				from Utilities import getStackTrace
+				from .Utilities import getStackTrace
 				stackTrace = getStackTrace(e)
 				self.logger.addEvent('system', ('HARD_EXIT_FAILURE: ' + str(e)))
 				self.logger.addEvent('system', ('HARD_EXIT_FAILURE_STACKTRACE: ' + str(stackTrace)))
@@ -279,9 +279,9 @@ class TradingInstance(object):
 		self.logger.addEvent('system', sysEnd)
 		r.db_drop(self.name).run(self.conn)
 
-		from Utilities import removeRDB_Direc
+		from .Utilities import removeRDB_Direc
 		removeRDB_Direc()
 
-		from Diagnostics import ResultFormatter
+		from .Diagnostics import ResultFormatter
 		results = ResultFormatter(self.name, self.logger.filename)
 		results.getFormattedResults(rStats, cStats, oBook, pBook)

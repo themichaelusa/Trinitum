@@ -2,7 +2,6 @@ from datetime import datetime, timedelta
 from dateutil import relativedelta
 from numpy import nan
 import itertools as itert
-import matplotlib as mpl
 import datetime as dt
 import ciso8601
 import time
@@ -47,12 +46,6 @@ def UNIXtoDate(timestamp):
 
 def stringToDatetime(string): #format: "YYYYMMDD", ex: "20170519"
 	return UNIXtoDate((dateToUNIX(string)))
-
-def date2numWrapper(data): 
-	return mpl.dates.date2num(data)
-
-def num2dateWrapper(data): 
-	return mpl.dates.num2date(data)
 
 def datetimeDiff(datetime1, daysNum, order = "%Y%m%d"):
 

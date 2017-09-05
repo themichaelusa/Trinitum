@@ -4,7 +4,7 @@ class Logger(object):
 		self.filename = name + ext
 
 	def addEvent(self, eventName, eventDesc):
-		from Utilities import getCurrentTime
+		from .Utilities import getCurrentTime
 		event = getCurrentTime() + ' ' + eventName + '| ' + eventDesc + '\n'
 		with open(self.filename, "a+") as file:
 			file.write(event)

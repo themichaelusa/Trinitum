@@ -1,8 +1,7 @@
 import time
 import json
 import requests
-import googFinanceWrapper as gf 
-from Utilities import dateToUNIX, flattenList
+from .Utilities import dateToUNIX, flattenList
 import pandas as pd
 import numpy as np
 
@@ -13,7 +12,6 @@ class Pipeline(object):
 		self.interval = interval
 		self.POLO_URL = 'https://poloniex.com/public'
 		self.POLO_HIST_DATA = self.POLO_URL + '?command=returnChartData&currencyPair={}&start={}&end={}&period={}'
-		self.gfFinanceReference = gf.getGoogleIntradayData
 
 	def getCryptoHistoricalData(self, currencyPair, startDate, endDate, vwap = False):
 
@@ -29,26 +27,26 @@ class Pipeline(object):
 
 		return histDataframe[["date", "open", "high", "low", "close", "volume"]]
 
-	def getEquityHistoricalData(self, ticker, lookback):
-		equityData = self.gfFinanceReference(ticker, self.interval, lookback)
-		return equityData
-
 class Formatter(object):
 
 	def __init__(self): pass
 
-	def formatSpotData(self, sdDict, vwap=False):
-		
-		spotData = [float(sdDict['price']), float(sdDict['volume'])]
-		if (vwap == True): 
-			spotData.append(float(sdDict['weightedAverage']))
-			return spotData
-		else: return spotData
+	def formatStratData(self, sdDict, tiDict, vwap=False):
 
-	def formatTechIndicators(self, tiDict):
-		
-		dictVals = list(tiDict.values())
-		dictVals = dictVals[:len(dictVals)-1] #removes rethinkDB ID
-		return flattenList(dictVals)
+		stratData = {
+		'price': float(sdDict['price']),
+		'volume': float(sdDict['volume'])
+		}
+
+		tiDict.pop('id')
+		formattedTiDict = {}
+		for k,v in tiDict.items():
+			unnecessaryTuple = type(v) == list and len(v) == 1  
+			if (unnecessaryTuple): formattedTiDict.update({k:v[0]})
+			else: formattedTiDict.update({k:v})
+
+		stratData.update(formattedTiDict)
+		print(stratData)
+		return stratData
 
 	def dfToHeikenAshi(self, dataframe): pass

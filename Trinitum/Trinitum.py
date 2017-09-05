@@ -1,6 +1,3 @@
-from TradingInstance import TradingInstance
-from Strategy import Strategy
-
 """ 
 Welcome to the Trinitum Instance. 
 Struture of the System by Hierarchy: 
@@ -62,8 +59,10 @@ class Gem(TrinitumInstance):
 		self.indicatorLag, self.systemLag = indicatorLag, systemLag
 
 	def run(self, endTime, endCode=0):
-
+		
+		from .TradingInstance import TradingInstance
 		tri = TradingInstance(self.name)
+		
 		tri.setExchangeAuthCredentials(self.key, self.secret, self.password)
 		tri.setSymbol(self.exchange, self.symbol, self.quantity)
 		tri.setTradingParams(self.inds, self.tolerance, self.poslimit)

@@ -1,12 +1,6 @@
 import time
 import asyncio
 import rethinkdb as r
-import Order as order
-import Position as pos
-import Constants as cst
-from Pipeline import Formatter
-from Utilities import getObjectDict
-from gdax import PublicClient, AuthenticatedClient
 
 class AsyncTaskManager(object):
 
@@ -29,7 +23,10 @@ class AsyncPipelineManager(AsyncTaskManager):
 	def __init__(self, dbReference, connection, logger): 		
 
 		super().__init__(dbReference, connection, logger)
-		self.formatterInstance = Formatter()
+		from .Pipeline import Formatter
+		from gdax import PublicClient
+
+		self.formatter = Formatter()
 		self.gdaxPublicClient = PublicClient()
 		self.spotDataRef = self.dbReference.table('SpotData')
 		self.techIndsRef = self.dbReference.table('TechIndicators')
@@ -59,13 +56,10 @@ class AsyncPipelineManager(AsyncTaskManager):
 
 		sdData = self.pullTableContents(self.spotDataRef)
 		tiData = self.pullTableContents(self.techIndsRef)
-
-		formattedSDData = self.formatterInstance.formatSpotData(sdData[0])
-		formattedTIData = self.formatterInstance.formatTechIndicators(tiData[0])
-		formattedTickData = tuple(formattedSDData + formattedTIData)
+		formattedStratData = self.formatter.formatStratData(sdData[0], tiData[0])
 		
 		await asyncio.sleep(0)
-		return formattedTickData
+		return formattedStratData
 
 class AsyncStrategyManager(AsyncTaskManager):
 	
@@ -97,6 +91,8 @@ class AsyncStatisticsManager(AsyncTaskManager):
 	def __init__(self, dbReference, connection, authData, logger): 		
 		
 		super().__init__(dbReference, connection, logger)
+		from gdax import AuthenticatedClient
+
 		self.gdaxAuthClient = AuthenticatedClient(*authData)
 		self.RiskStatsRef = self.dbReference.table('RiskData')
 		self.CapitalStatsRef = self.dbReference.table('CapitalData')
@@ -143,15 +139,15 @@ class AsyncTradingManager(AsyncTaskManager):
 	def __init__(self, dbReference, connection, authData, logger): 		
 
 		super().__init__(dbReference, connection, logger)
+		from gdax import AuthenticatedClient
+		
 		self.pCacheRef = self.dbReference.table('PositionCache')
 		self.RiskStatsRef = self.dbReference.table('RiskStats')
 		self.CapitalStatsRef = self.dbReference.table('CapitalStats')
 		self.gdaxAuthClient = AuthenticatedClient(*authData)
-		
-		self.symbol = cst.NOT_SET
-		self.quantity = cst.NOT_SET
-		self.tolerance = cst.NOT_SET
-		self.poslimit = cst.NOT_SET
+
+		from .Constants import NOT_SET
+		self.symbol, self.quantity, self.tolerance, self.poslimit = (NOT_SET,)*4
 
 	def validPosLimitCheck(self):
 		return bool((len(self.pullTableContents(self.pCacheRef))+1) <= self.poslimit)
@@ -162,7 +158,8 @@ class AsyncTradingManager(AsyncTaskManager):
 		validEntryVerdict = entryVerdict == 1 or entryVerdict == -1
 
 		if (validEntryVerdict and self.validPosLimitCheck()):
-			entryOrder = order.Order('ENT', 'B', self.symbol, self.quantity)
+			from .Order import Order
+			entryOrder = Order('ENT', 'B', self.symbol, self.quantity)
 			orderLog = "Created Order for: " + str(self.symbol) + " at size: " + str(self.quantity)
 			self.logger.addEvent('trading', orderLog)
 
@@ -200,7 +197,9 @@ class AsyncTradingManager(AsyncTaskManager):
 					orderFillTime = orderStatus['done_at']
 					entryValue = float(response['executed_value'])
 					orderData = (entryOrder.direction, self.symbol, self.quantity, entryValue, orderFillTime)
-					newPosition = pos.Position(orderID, *orderData)
+					
+					from .Position import Position
+					newPosition = Position(orderID, *orderData)
 					positionEntered = noErrors + ', Entered Position: ' + str(orderID)
 					self.logger.addEvent('trading', positionEntered)
 
@@ -222,21 +221,24 @@ class AsyncTradingManager(AsyncTaskManager):
 
 			sellResponses, completedPositions, exitOrders, response = [], [], [], None
 			self.gdaxAuthClient.cancel_all(product=self.symbol)
+			from .Position import Position
+			from .Order import Order
 
 			for p in positionCache:
 
-				while (response == cst.GDAX_FUNDS_ERROR or response == None):
+				from .Constants import GDAX_FUNDS_ERROR
+				while (response == GDAX_FUNDS_ERROR or response == None):
 					response = dict(self.gdaxAuthClient.sell(product_id=self.symbol, type='market', funds=self.quantity))
-					if (response == cst.GDAX_FUNDS_ERROR):
+					if (response == GDAX_FUNDS_ERROR):
 						self.logger.addEvent('trading', 'INVALID_SELL_RESPONSE: GDAX_FUNDS_ERROR')
 
 				pArgs = (p['entID'], p['direction'], p['ticker'], p['quantity'], p['entryPrice'], p['entryTime'])
-				completedPosition = pos.Position(*pArgs)
+				completedPosition = Position(*pArgs)
 				completedPosition.setExitID(response['id'])
 				completedPositions.append(completedPosition)
 				sellResponses.append(response)
 
-				exitOrder = order.Order('EX', 'S', self.symbol, self.quantity)
+				exitOrder = Order('EX', 'S', self.symbol, self.quantity)
 				exitOrder.setErrorCode("NO_ERRORS")
 				exitOrder.setOrderID(response['id'])
 				exitOrders.append(exitOrder)
@@ -277,11 +279,14 @@ class AsyncBookManager(AsyncTaskManager):
 		self.orderBookRef = self.dbReference.table('OrderBook')
 		self.posBookRef = self.dbReference.table("PositionBook")
 
+		from .Utilities import getObjectDict
+		self.getObjectDict = getObjectDict
+
 	async def addToOrderBook(self, orderObjs): #write
 		
 		if (orderObjs != [None]):
 			for orderObj in orderObjs:
-				oDict = getObjectDict(orderObj)
+				oDict = self.getObjectDict(orderObj)
 				self.orderBookRef.insert(oDict).run(self.connection)
 
 		await asyncio.sleep(0)
@@ -290,7 +295,7 @@ class AsyncBookManager(AsyncTaskManager):
 
 		if (positions != [None]):
 			for position in positions:
-				pDict = getObjectDict(position)
+				pDict = self.getObjectDict(position)
 				self.posBookRef.insert(pDict).run(self.connection)
 			
 		await asyncio.sleep(0)

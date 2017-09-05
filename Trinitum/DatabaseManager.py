@@ -1,17 +1,20 @@
 import rethinkdb as r
-import AsyncManager as asm
-from AsyncPQ import AsyncReadWriteQueue
 
 class DatabaseManager(object):
 
 	def __init__(self, dbReference, conn, strat, auth, logger):
 
+		from .AsyncManager import AsyncPipelineManager, AsyncStrategyManager
+		from .AsyncManager import AsyncStatisticsManager, AsyncTradingManager
+		from .AsyncManager import AsyncBookManager
+		from AsyncPQ import AsyncReadWriteQueue
+
 		self.classDict = {
-		'pipeline': asm.AsyncPipelineManager(dbReference, conn, logger),
-		'strategy': asm.AsyncStrategyManager(dbReference, conn, strat, logger),
-		'statistics': asm.AsyncStatisticsManager(dbReference, conn, auth, logger),
-		'trading': asm.AsyncTradingManager(dbReference, conn, auth, logger),
-		'books': asm.AsyncBookManager(dbReference, conn, logger)
+		'pipeline': AsyncPipelineManager(dbReference, conn, logger),
+		'strategy': AsyncStrategyManager(dbReference, conn, strat, logger),
+		'statistics': AsyncStatisticsManager(dbReference, conn, auth, logger),
+		'trading': AsyncTradingManager(dbReference, conn, auth, logger),
+		'books': AsyncBookManager(dbReference, conn, logger)
 		}
 		
 		self.strat = strat

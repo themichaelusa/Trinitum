@@ -1,6 +1,3 @@
-import Constants as cst
-import Pipeline as plu
-
 class Position(object):
 
 	def __init__(self, ID = None, direction = None, ticker = None, quantity = None, entryPrice = None, entryTime = None):
@@ -9,7 +6,7 @@ class Position(object):
 		self.direction = direction
 		self.ticker = ticker
 		self.quantity = quantity
-		self.entryPrice = entryPrice
+		self.entryPrice = float(entryPrice)
 		self.entryTime = entryTime
 
 		self.exID = cst.NOT_SET
@@ -24,10 +21,10 @@ class Position(object):
 		
 	def setExitParams(self, exitPrice, exitTime):
 
-		self.exitPrice = exitPrice
+		self.exitPrice = float(exitPrice)
 		self.exitTime = exitTime
 
-		self.gain = exitPrice - self.entryPrice
-		#percentReturn = self.exitPrice/self.entryPrice
-		#if (percentReturn >= 1): self.returns = percentReturn
-		#else: self.returns = -1*percentReturn 
+		self.gain = self.exitPrice - self.entryPrice
+		percentReturn = self.exitPrice/self.entryPrice
+		if (percentReturn >= 1): self.returns = percentReturn
+		else: self.returns = -1*percentReturn 

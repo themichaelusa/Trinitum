@@ -15,3 +15,4 @@ gem.addIndicator('RSI', 10)
 
 gem.addExchangeCredentials('GDAX', key, passphrase, secret)
 gem.run(endTime='20170910')
+

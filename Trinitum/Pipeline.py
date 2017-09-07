@@ -46,7 +46,10 @@ class Formatter(object):
 			else: formattedTiDict.update({k:v})
 
 		stratData.update(formattedTiDict)
-		print(stratData)
 		return stratData
+
+	def generateVWAP(self, histDF): 
+		v, h, l = histDF.v.values, histDF.h.values, histDF.l.values
+		return np.cumsum(v*(h+l)/2)/np.cumsum(v)
 
 	def dfToHeikenAshi(self, dataframe): pass

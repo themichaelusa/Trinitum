@@ -69,22 +69,19 @@ class AsyncStrategyManager(AsyncTaskManager):
 		self.strategy = strat
 		self.tradingRef = self.dbReference.table('PositionCache')
 
-	async def tryEntryStrategy(self, tickData): #read
+	async def tryStrategy(self, tickData): #read
 
-		entryResult = self.strategy.tryEntryStrategy(tickData)
-		if (entryResult == 1): 
+		result = self.strategy.tryStrategy(tickData)
+		
+		if (result == 1): 
 			self.logger.addEvent('strategy', 'ENTRY CONDS VALID')
-		await asyncio.sleep(0)
-		return entryResult
+		if (result == -1):
+			pCacheSize = int(self.tradingRef.count().run(self.connection))
+			if (pCacheSize > 0):
+				self.logger.addEvent('strategy', 'EXIT CONDS VALID')
 
-	async def tryExitStrategy(self, tickData): #read
-
-		pCacheSize = int(self.tradingRef.count().run(self.connection))
-		exitResult = self.strategy.tryExitStrategy(pCacheSize, tickData)
-		if (exitResult == 1):
-			self.logger.addEvent('strategy', 'EXIT CONDS VALID')
 		await asyncio.sleep(0)
-		return exitResult
+		return result
 
 class AsyncStatisticsManager(AsyncTaskManager):
 
@@ -152,10 +149,10 @@ class AsyncTradingManager(AsyncTaskManager):
 	def validPosLimitCheck(self):
 		return bool((len(self.pullTableContents(self.pCacheRef))+1) <= self.poslimit)
 
-	async def createOrders(self, entryVerdict): #read
+	async def createOrders(self, stratVerdict): #read
 
 		entryOrder = None
-		validEntryVerdict = entryVerdict == 1 or entryVerdict == -1
+		validEntryVerdict = stratVerdict == 1
 
 		if (validEntryVerdict and self.validPosLimitCheck()):
 			from .Order import Order
@@ -211,10 +208,10 @@ class AsyncTradingManager(AsyncTaskManager):
 		await asyncio.sleep(0)
 		return ([entryOrder], newPosition)
 
-	async def exitValidPositions(self, exitVerdict): #read
+	async def exitValidPositions(self, stratVerdict): #read
 
 		positionCache = self.pullTableContents(self.pCacheRef)
-		validExitConditions = exitVerdict != 0 and positionCache != []
+		validExitConditions = stratVerdict == -1 and positionCache != []
 		completedPositions, exitOrders = [None], [None]
 
 		if (validExitConditions):

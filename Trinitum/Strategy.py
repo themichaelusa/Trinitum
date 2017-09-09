@@ -1,18 +1,12 @@
 class Strategy(object):
 
-	def __init__(self, ID, entryStrat, exitStrat):
-		
+	def __init__(self, ID, stratRef):
 		self.ID = ID
-		self.entryStrat = entryStrat
-		self.exitStrat = exitStrat
+		self.stratRef = stratRef
+
+	def tryStrategy(self, tickData): 
+		return self.stratRef(tickData)
 
 	def setStopLoss(self, price, trailing = False): pass
 
-	def tryEntryStrategy(self, tickData): 
-		return self.entryStrat(tickData)
-
-	def tryExitStrategy(self, pCacheSize, tickData): 
-		if (pCacheSize > 0): 
-			return self.exitStrat(tickData)
-		else: return 0
 

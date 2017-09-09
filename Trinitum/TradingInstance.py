@@ -158,7 +158,7 @@ class TradingInstance(object):
 	"""
 	The start function creates the RethinkDB instance 
 	"""
-	def start(self, stratName, *stratFuncs):
+	def start(self, stratName, stratFunc):
 	
 		self.initDatabase()
 		self.initPipelineTables()
@@ -168,8 +168,7 @@ class TradingInstance(object):
 
 		from .Strategy import Strategy
 		from .DatabaseManager import DatabaseManager
-		entryConditions, exitConditions = stratFuncs
-		strat = Strategy(stratName, entryConditions, exitConditions)
+		strat = Strategy(stratName, stratFunc)
 		self.databaseManager = DatabaseManager(self.dbRef, self.conn, strat, self.auth, self.logger)
 		self.databaseManager.setTradingParameters(self.symbol, self.quantity, self.tolerance, self.poslimit)
 
@@ -213,11 +212,10 @@ class TradingInstance(object):
 		stratData = self.databaseManager.processTasks()
 		spotPrice = stratData['price']
 
-		self.databaseManager.read("strategy", "tryEntryStrategy", stratData)
-		self.databaseManager.read("strategy", "tryExitStrategy", stratData)
-		entryVerdict, exitVerdict = self.databaseManager.processTasks()
+		self.databaseManager.read("strategy", "tryStrategy", stratData)
+		stratVerdict = self.databaseManager.processTasks()
 
-		self.databaseManager.read('trading', 'createOrders', entryVerdict)
+		self.databaseManager.read('trading', 'createOrders', stratVerdict)
 		entryOrder = self.databaseManager.processTasks()
 		potentialEntryOrder = bool(entryOrder != None)
 
@@ -229,7 +227,7 @@ class TradingInstance(object):
 		self.databaseManager.write('trading', 'addToPositionCache', entryPos)
 		self.databaseManager.write('books', 'addToOrderBook', filledOrder)
 		self.databaseManager.write("statistics", "updateCapitalStatistics", potentialPositionEntry)
-		self.databaseManager.read('trading', 'exitValidPositions', exitVerdict)
+		self.databaseManager.read('trading', 'exitValidPositions', stratVerdict)
 		filledExitOrders, completedPositions = self.databaseManager.processTasks()
 		potentialExitMade = bool(potentialPositionEntry or filledExitOrders != [None])
 

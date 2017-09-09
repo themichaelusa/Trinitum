@@ -24,7 +24,7 @@ class TrinitumInstance(object):
 	def __init__(self, name, symbol, quantity):
 		
 		self.name, self.symbol, self.quantity = name, symbol, quantity
-		self.stratName, self.entryConds, self.exitConds = (None,)*3
+		self.stratName, self.stratRef = (None,)*2
 		self.inds = {}
 
 		self.exchange, self.key, self.password, self.secret = (None,)*4
@@ -38,8 +38,8 @@ class TrinitumInstance(object):
 	def addIndicator(self, indicator, *indArgs):
 		self.inds.update({indicator: indArgs})
 
-	def addStrategy(self, stratName, entryConds, exitConds):
-		self.stratName, self.entryConds, self.exitConds = stratName, entryConds, exitConds
+	def addStrategy(self, stratName, stratRef):
+		self.stratName, self.stratRef = stratName, stratRef
 
 	def setHistDataParams(self, histInterval=300, histPeriod=300):
 		self.histInterval, self.histPeriod = histInterval, histPeriod
@@ -68,6 +68,6 @@ class Gem(TrinitumInstance):
 		tri.setTradingParams(self.inds, self.tolerance, self.poslimit)
 		tri.setLagParams(self.indicatorLag, self.systemLag)
 		tri.createLoggerInstance((self.name + 'syslog'))
-		tri.start(self.stratName, self.entryConds, self.exitConds)
+		tri.start(self.stratName, self.stratRef)
 		tri.run(endTime, self.histInterval, self.histPeriod, endCode)	
 		

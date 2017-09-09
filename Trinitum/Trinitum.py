@@ -29,11 +29,11 @@ class TrinitumInstance(object):
 
 		self.exchange, self.key, self.password, self.secret = (None,)*4
 		self.histInterval, self.histPeriod = (300,)*2
-		self.indicatorLag, self.systemLag = (1,)*2
-		self.tolerance = .05
-		self.poslimit = 1
 
-		self.gemResults = None
+		from .Constants import DEFAULT_RISK_TOL, DEFAULT_POS_LIMIT
+		from .Constants import DEFAULT_IND_LAG, DEFAULT_SYS_LAG
+		self.indicatorLag, self.systemLag = DEFAULT_IND_LAG, DEFAULT_SYS_LAG
+		self.tolerance, self.poslimit = DEFAULT_RISK_TOL, DEFAULT_POS_LIMIT
 
 	def addIndicator(self, indicator, *indArgs):
 		self.inds.update({indicator: indArgs})
@@ -69,5 +69,5 @@ class Gem(TrinitumInstance):
 		tri.setLagParams(self.indicatorLag, self.systemLag)
 		tri.createLoggerInstance((self.name + 'syslog'))
 		tri.start(self.stratName, self.entryConds, self.exitConds)
-		self.gemResults = tri.run(endTime, self.histInterval, self.histPeriod, endCode)	
+		tri.run(endTime, self.histInterval, self.histPeriod, endCode)	
 		

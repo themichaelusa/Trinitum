@@ -11,16 +11,16 @@ class TradingInstance(object):
 	
 	def __init__(self, name):
 
-		self.NONE = "None"
-		self.name = name
-		self.auth = None
+		self.name, self.NONE = name, "None"
+		self.auth, self.exchange, self.symbol = (None,)*3
 
-		self.exchange, self.symbol = (None,)*2 
-		self.quantity = .01 #default
-		self.tolerance = .05 #default
-		self.poslimit = 1 #default
-		self.indicatorLag = 1 #default
-		self.systemLag = 0 #default
+		from .Constants import DEFAULT_QUANTITY, DEFAULT_RISK_TOL, DEFAULT_POS_LIMIT
+		from .Constants import DEFAULT_IND_LAG, DEFAULT_SYS_LAG 
+		self.quantity = DEFAULT_QUANTITY
+		self.tolerance = DEFAULT_RISK_TOL
+		self.poslimit = DEFAULT_POS_LIMIT
+		self.indicatorLag = DEFAULT_IND_LAG
+		self.systemLag = DEFAULT_SYS_LAG 
 		self.techInds = None
 
 		self.conn = None
@@ -279,8 +279,9 @@ class TradingInstance(object):
 		self.logger.addEvent('system', sysEnd)
 		r.db_drop(self.name).run(self.conn)
 
-		from .Utilities import removeRDB_Direc
-		removeRDB_Direc()
+		# RDB directory removal too unintuitive for end user 
+		#from .Utilities import removeRDB_Direc
+		#removeRDB_Direc()
 
 		from .Diagnostics import ResultFormatter
 		results = ResultFormatter(self.name, self.logger.filename)

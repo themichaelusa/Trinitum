@@ -5,7 +5,9 @@ class Strategy(object):
 		self.stratRef = stratRef
 
 	def tryStrategy(self, tickData): 
-		return self.stratRef(tickData)
+		result = self.stratRef(tickData)
+		if (result is None): return 0
+		else: return result
 
 	def setStopLoss(self, price, trailing = False): pass
 

@@ -2,8 +2,7 @@ from Trinitum import Gem
 
 def myFirstStrategy(data):
 	if (data['RSI'] >= 30 and data['RSI'] <= 50): return 1
-	elif (data['RSI'] >= 70): return -1
-	else: return 0
+	if (data['RSI'] >= 70): return -1
 
 key, secret, passphrase = 'blah', 'bloo', 'blee'
 gem = Gem('BASIC', 'BTC-USD', quantity=.01)

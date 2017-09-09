@@ -3,8 +3,7 @@ from Trinitum import Gem
 def myAROON(data):
 	aroonup, aroondown = data['AROON']
 	if (data['price'] < data['EMA'] and aroondown >= 80): return 1
-	elif (data['price'] > data['EMA'] and aroonup >= 80): return -1
-	else: return 0
+	if (data['price'] > data['EMA'] and aroonup >= 80): return -1
 
 key, secret, passphrase = 'blah', 'bloo', 'blee'
 

@@ -9,12 +9,13 @@ class Position(object):
 		self.entryPrice = float(entryPrice)
 		self.entryTime = entryTime
 
-		self.exID = cst.NOT_SET
-		self.exitPrice = cst.NOT_SET
-		self.exitTime = cst.NOT_SET
-		self.returns = cst.NOT_SET
-		self.tradingWindow = cst.NOT_SET
-		self.gain = cst.NOT_SET
+		from .Constants import NOT_SET
+		self.exID = NOT_SET
+		self.exitPrice = NOT_SET
+		self.exitTime = NOT_SET
+		self.returns = NOT_SET
+		self.tradingWindow = NOT_SET
+		self.gain = NOT_SET
 
 	def setExitID(self, exID):
 		self.exID = exID

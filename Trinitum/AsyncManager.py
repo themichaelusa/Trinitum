@@ -34,22 +34,32 @@ class AsyncPipelineManager(AsyncTaskManager):
 
 	async def updateSpotData(self): #write
 
-		spotData = dict(self.gdaxPublicClient.get_product_ticker(self.symbol))
-		self.spotPrice, self.spotVolume = float(spotData['price']), float(spotData['volume'])
-		self.spotDataRef.update(spotData).run(self.connection)
+		try:
+			spotData = dict(self.gdaxPublicClient.get_product_ticker(self.symbol))
+			self.spotPrice, self.spotVolume = float(spotData['price']), float(spotData['volume'])
+			self.spotDataRef.update(spotData).run(self.connection)		
+
+		except BaseException as e: 
+			self.logger.addEvent('trading', ('UPDATE_SPOT_DATA_ERROR: ' + str(e)))
+
 		await asyncio.sleep(0)
 
 	async def updateTechIndicators(self, techIndsList, lag = 1): #write
 
-		OHLCV = list(self.gdaxPublicClient.get_product_24hr_stats(self.symbol).values())[:3]
-		OHLCV = [float(data) for data in OHLCV]
-		OHLCV.extend([self.spotPrice, self.spotVolume])
+		try:
+			OHLCV = list(self.gdaxPublicClient.get_product_24hr_stats(self.symbol).values())[:3]
+			OHLCV = [float(data) for data in OHLCV]
+			OHLCV.extend([self.spotPrice, self.spotVolume])
 
-		techIndDict = {}
-		for ind in techIndsList:
-			techIndDict.update({ind.tbWrapper.indicator: ind.getRealtime(OHLCV, lag)})
-		
-		self.techIndsRef.update(techIndDict).run(self.connection)
+			techIndDict = {}
+			for ind in techIndsList:
+				techIndDict.update({ind.tbWrapper.indicator: ind.getRealtime(OHLCV, lag)})
+			
+			self.techIndsRef.update(techIndDict).run(self.connection)
+
+		except BaseException as e: 
+			self.logger.addEvent('trading', ('UPDATE_TECH_INDS_ERROR: ' + str(e)))
+
 		await asyncio.sleep(0)
 
 	async def pullPipelineData(self): #read
@@ -101,22 +111,27 @@ class AsyncStatisticsManager(AsyncTaskManager):
 
 	async def updateCapitalStatistics(self, logCapital=False):
 
-		accountData = list(self.gdaxAuthClient.get_accounts())
-		acctDataUSD = list(filter(lambda x: x['currency'] == "USD", accountData))
-		availibleCapitalUSD = float(acctDataUSD[0]['available'])
-		printCapitalValid = bool(logCapital == True)
-		
-		capitalDict = {
-		'capital': availibleCapitalUSD, 
-		"commission": 'None', 
-		"return": 'None'
-		}
+		try:	
+			accountData = list(self.gdaxAuthClient.get_accounts())
+			acctDataUSD = list(filter(lambda x: x['currency'] == "USD", accountData))
+			availibleCapitalUSD = float(acctDataUSD[0]['available'])
+			printCapitalValid = bool(logCapital == True)
+			
+			capitalDict = {
+			'capital': availibleCapitalUSD, 
+			"commission": 'None', 
+			"return": 'None'
+			}
 
-		if(printCapitalValid):
-			capitalCheck = "Current Capital: " + str(availibleCapitalUSD)
-			self.logger.addEvent('statistics', capitalCheck)
+			if(printCapitalValid):
+				capitalCheck = "Current Capital: " + str(availibleCapitalUSD)
+				self.logger.addEvent('statistics', capitalCheck)
 
-		self.CapitalStatsRef.update(capitalDict).run(self.connection)
+			self.CapitalStatsRef.update(capitalDict).run(self.connection)
+
+		except BaseException as e: 
+			self.logger.addEvent('trading', ('GDAX_AUTHCLIENT_GET_ACCOUNTS_ERROR: ' + str(e)))
+
 		await asyncio.sleep(0)
 
 	async def pullRiskStatistics(self): 

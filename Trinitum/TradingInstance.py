@@ -201,40 +201,47 @@ class TradingInstance(object):
 		self.end(endCode)
 
 	def runSystemLogic(self):
-		
-		self.databaseManager.write("pipeline", "updateSpotData")
-		self.databaseManager.write("statistics", "updateCapitalStatistics")
-		self.databaseManager.read("statistics", "pullCapitalStatistics")
-		capitalStats = self.databaseManager.processTasks()
 
-		self.databaseManager.write("pipeline", "updateTechIndicators", self.techInds, self.indicatorLag)
-		self.databaseManager.read("pipeline", "pullPipelineData")
-		stratData = self.databaseManager.processTasks()
-		spotPrice = stratData['price']
+		try:
+			self.databaseManager.write("pipeline", "updateSpotData")
+			self.databaseManager.write("statistics", "updateCapitalStatistics")
+			self.databaseManager.read("statistics", "pullCapitalStatistics")
+			capitalStats = self.databaseManager.processTasks()
 
-		self.databaseManager.read("strategy", "tryStrategy", stratData)
-		stratVerdict = self.databaseManager.processTasks()
+			self.databaseManager.write("pipeline", "updateTechIndicators", self.techInds, self.indicatorLag)
+			self.databaseManager.read("pipeline", "pullPipelineData")
+			stratData = self.databaseManager.processTasks()
+			spotPrice = stratData['price']
 
-		self.databaseManager.read('trading', 'createOrders', stratVerdict)
-		entryOrder = self.databaseManager.processTasks()
-		potentialEntryOrder = bool(entryOrder != None)
+			self.databaseManager.read("strategy", "tryStrategy", stratData)
+			stratVerdict = self.databaseManager.processTasks()
 
-		self.databaseManager.write("statistics", "updateCapitalStatistics", potentialEntryOrder)
-		self.databaseManager.read('trading', 'verifyAndEnterPosition', entryOrder, capitalStats, spotPrice)
-		filledOrder, entryPos = self.databaseManager.processTasks()
-		potentialPositionEntry = bool(filledOrder != [None])
-		
-		self.databaseManager.write('trading', 'addToPositionCache', entryPos)
-		self.databaseManager.write('books', 'addToOrderBook', filledOrder)
-		self.databaseManager.write("statistics", "updateCapitalStatistics", potentialPositionEntry)
-		self.databaseManager.read('trading', 'exitValidPositions', stratVerdict)
-		filledExitOrders, completedPositions = self.databaseManager.processTasks()
-		potentialExitMade = bool(potentialPositionEntry or filledExitOrders != [None])
+			self.databaseManager.read('trading', 'createOrders', stratVerdict)
+			entryOrder = self.databaseManager.processTasks()
+			potentialEntryOrder = bool(entryOrder != None)
 
-		self.databaseManager.write("statistics", "updateCapitalStatistics", potentialExitMade)
-		self.databaseManager.write('books', 'addToPositionBook', completedPositions)
-		self.databaseManager.write('books', 'addToOrderBook', filledExitOrders)
-		self.databaseManager.processTasks(), time.sleep(self.systemLag)
+			self.databaseManager.write("statistics", "updateCapitalStatistics", potentialEntryOrder)
+			self.databaseManager.read('trading', 'verifyAndEnterPosition', entryOrder, capitalStats, spotPrice)
+			filledOrder, entryPos = self.databaseManager.processTasks()
+			potentialPositionEntry = bool(filledOrder != [None])
+			
+			self.databaseManager.write('trading', 'addToPositionCache', entryPos)
+			self.databaseManager.write('books', 'addToOrderBook', filledOrder)
+			self.databaseManager.write("statistics", "updateCapitalStatistics", potentialPositionEntry)
+			self.databaseManager.read('trading', 'exitValidPositions', stratVerdict)
+			filledExitOrders, completedPositions = self.databaseManager.processTasks()
+			potentialExitMade = bool(potentialPositionEntry or filledExitOrders != [None])
+
+			self.databaseManager.write("statistics", "updateCapitalStatistics", potentialExitMade)
+			self.databaseManager.write('books', 'addToPositionBook', completedPositions)
+			self.databaseManager.write('books', 'addToOrderBook', filledExitOrders)
+			self.databaseManager.processTasks(), time.sleep(self.systemLag)
+  			
+		except BaseException as e:
+			from .Utilities import getStackTrace
+			stackTrace = getStackTrace(e)
+			self.logger.addEvent('system', ('SYS_LOGIC_CRASH: ' + str(e)))
+			self.logger.addEvent('system', ('SYS_LOGIC_CRASH_STACKTRACE: ' + str(stackTrace)))
 
 	"""logic to close all remaining positions in cache, add to oBook, pBook.
 	endCode decides a hard exit or soft exit, e.g wait for strategies

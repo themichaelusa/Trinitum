@@ -146,6 +146,9 @@ class AsyncTradingManager(AsyncTaskManager):
 		from .Constants import NOT_SET
 		self.symbol, self.quantity, self.tolerance, self.poslimit = (NOT_SET,)*4
 
+		from .Utilities import getObjectDict
+		self.getObjectDict = getObjectDict
+
 	def validPosLimitCheck(self):
 		return bool((len(self.pullTableContents(self.pCacheRef))+1) <= self.poslimit)
 
@@ -263,7 +266,7 @@ class AsyncTradingManager(AsyncTaskManager):
 	async def addToPositionCache(self, position): #write
 
 		if (position is not None):
-			pDict = getObjectDict(position)
+			pDict = self.getObjectDict(position)
 			self.pCacheRef.insert(pDict).run(self.connection)
 		
 		await asyncio.sleep(0)

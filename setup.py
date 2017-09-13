@@ -9,7 +9,7 @@ setup(
   author_email = 'meu2@illinois.edu',
   url = 'https://github.com/themichaelusa/Trinitum', 
   download_url = 'https://github.com/themichaelusa/Trinitum/archive/0.04.tar.gz', 
-  install_requires=['rethinkdb','realtime_talib', 'AsyncPQ', 'pandas', 'numpy', 'gdax', 'ciso8601', 'requests', 'dateutil'],
+  install_requires=['rethinkdb','realtime_talib', 'AsyncPQ', 'pandas', 'numpy', 'gdax', 'ciso8601', 'requests', 'python-dateutil'],
   keywords = ['Trinitum', 'algotrading', 'cryptocurrency', 'bots'],
   classifiers = [],
 )

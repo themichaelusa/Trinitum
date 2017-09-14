@@ -52,4 +52,6 @@ gem.run(endTime='20170910', endCode=0)
 ## TODO
 
 - [ ] Add support for custom strategy scripts
+- [ ] Better Documentation
+- [ ] Add Risk Statistics
 - [ ] Add VWAP indicator

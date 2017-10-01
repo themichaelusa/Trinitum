@@ -112,7 +112,7 @@ class AsyncStatisticsManager(AsyncTaskManager):
 	async def updateCapitalStatistics(self, logCapital=False):
 
 		try:	
-			accountData = list(self.gdaxAuthClient.get_accounts())
+			accountData = dict(self.gdaxAuthClient.get_accounts())
 			acctDataUSD = list(filter(lambda x: x['currency'] == "USD", accountData))
 			availibleCapitalUSD = float(acctDataUSD[0]['available'])
 			printCapitalValid = bool(logCapital == True)

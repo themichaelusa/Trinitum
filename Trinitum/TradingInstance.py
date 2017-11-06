@@ -22,6 +22,7 @@ class TradingInstance(object):
 		self.indicatorLag = DEFAULT_IND_LAG
 		self.systemLag = DEFAULT_SYS_LAG 
 		self.techInds = None
+		self.riskProfile = None
 
 		self.conn = None
 		self.dbRef = None
@@ -78,19 +79,13 @@ class TradingInstance(object):
 	"""
 	def initStatisticsTables(self): 
 
-		riskData = {
-		'KellyCriterion': self.NONE, 
-		'SharpeRatio' : self.NONE, 
-		'MaxDrawdown': self.NONE,
-		'Alpha' : self.NONE,
-		'Beta': self.NONE
-		}
-
 		capitalData = {
 		'capital' : self.NONE, 
 		"commission" : self.NONE, 
 		"return" : self.NONE
 		}
+
+		riskData = {}
 
 		riskDataStr, CapitalDataStr = 'RiskData', 'CapitalData'
 		self.dbRef.table_create(riskDataStr).run(self.conn)
@@ -134,6 +129,10 @@ class TradingInstance(object):
 	def setLagParams(self, indicatorLag, systemLag):
 		self.indicatorLag, self.systemLag = indicatorLag, systemLag
 
+	def generateRiskProfile(self, analyticsDict):
+		from RiskAnalysis import RiskProfile
+		self.riskProfile = RiskProfile(analyticsDict)
+
 	"""
 	The generateTechIndObjects function creates realtime_talib Indicator objects 
 	for every indicator adds with the Gem object method addIndicator. They are used 
@@ -171,6 +170,7 @@ class TradingInstance(object):
 		strat = Strategy(stratName, stratFunc)
 		self.databaseManager = DatabaseManager(self.dbRef, self.conn, strat, self.auth, self.logger)
 		self.databaseManager.setTradingParameters(self.symbol, self.quantity, self.tolerance, self.poslimit)
+		self.databaseManager.setRiskProfile(self.riskProfile)
 
 	def run(self, endTime, histInterval, histPeriod, endCode): 
 
@@ -250,6 +250,7 @@ class TradingInstance(object):
 	def end(self, endCode): 
 
 		from .Constants import SOFT_EXIT, HARD_EXIT
+		#TODO: Verify the safety and robustness of the 
 
 		if (endCode == SOFT_EXIT): 
 			try:

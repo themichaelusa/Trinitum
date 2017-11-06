@@ -1,6 +1,5 @@
 import time
 import json
-import requests
 from .Utilities import dateToUNIX, flattenList
 import pandas as pd
 import numpy as np
@@ -18,6 +17,8 @@ class Pipeline(object):
 		stDateUNIX = dateToUNIX(startDate)
 		eDateUNIX = dateToUNIX(endDate)
 		poloniexJsonURL = self.POLO_HIST_DATA.format(currencyPair, stDateUNIX, eDateUNIX, self.interval)
+
+		import requests
 		poloniexJson = requests.get(poloniexJsonURL).json()
 
 		histDataframe = pd.DataFrame.from_records(poloniexJson)
@@ -26,6 +27,18 @@ class Pipeline(object):
 		histDataframe['date'] = histDataframe['date'].astype(float)
 
 		return histDataframe[["date", "open", "high", "low", "close", "volume"]]
+
+	def getRiskFreeRate(self):
+		from bs4 import BeautifulSoup
+		import requests
+		treasuryURL = 'https://www.treasury.gov/resource-center/data-chart-center/interest-rates/Pages/TextView.aspx?data=yield'
+		data = requests.get(treasuryURL).text
+		html = BeautifulSoup(data, 'lxml')
+
+		targetYieldRow = html.find_all('tr', class_='evenrow')
+		floatYield = targetYieldRow[len(targetYieldRow)-1]
+		allYields = floatYield.find_all('td', class_='text_view_data')
+		return float(allYields[2].text)
 
 class Formatter(object):
 

@@ -31,6 +31,10 @@ class DatabaseManager(object):
 		tradingClass.tolerance = tolerance
 		tradingClass.poslimit = poslimit
 
+	def setRiskProfile(self, profile):
+		if profile is not None:
+			self.classDict['statistics'].riskProfile = profile
+
 	def read(self, tableName, operation, *opargs): 
 		self.rwQueue.cdRead(tableName, operation, *opargs)
 

@@ -25,7 +25,7 @@ class TrinitumInstance(object):
 		
 		self.name, self.symbol, self.quantity = name, symbol, quantity
 		self.stratName, self.stratRef = (None,)*2
-		self.inds = {}
+		self.inds, self.riskAnalytics = {},{}
 
 		self.exchange, self.key, self.password, self.secret = (None,)*4
 		self.histInterval, self.histPeriod = (300,)*2
@@ -51,6 +51,9 @@ class Gem(TrinitumInstance):
 
 	def addExchangeCredentials(self, exchange, key=None, password=None, secret=None):
 		self.exchange, self.key, self.password, self.secret = exchange, key, password, secret
+
+	def addRiskAnalytic(self, name, *riskArgs):
+		self.riskAnalytics.update({name: riskArgs})
 
 	def addRiskParameters(self, poslimit=1, tolerance=.05):
 		self.poslimit, self.tolerance = poslimit, tolerance

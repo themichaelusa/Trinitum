@@ -99,20 +99,23 @@ class AsyncStatisticsManager(AsyncTaskManager):
 		
 		super().__init__(dbReference, connection, logger)
 		from gdax import AuthenticatedClient
-
 		self.gdaxAuthClient = AuthenticatedClient(*authData)
-		self.RiskStatsRef = self.dbReference.table('RiskData')
 		self.CapitalStatsRef = self.dbReference.table('CapitalData')
 
-	async def updateRiskStatistics(self, rsuDict):
+		self.RiskStatsRef = self.dbReference.table('RiskData')
+		self.riskProfile = None #not permanent
+
+	async def updateRiskStatistics(self):
 		
-		self.RiskStatsRef.update(rsuDict).run(self.connection)
+		
+		analyticsDict = self.riskProfile.getAnalytics()
+		self.RiskStatsRef.update(analyticsDict).run(self.connection)
 		await asyncio.sleep(0)
 
 	async def updateCapitalStatistics(self, logCapital=False):
 
 		try:	
-			accountData = dict(self.gdaxAuthClient.get_accounts())
+			accountData = list(self.gdaxAuthClient.get_accounts())
 			acctDataUSD = list(filter(lambda x: x['currency'] == "USD", accountData))
 			availibleCapitalUSD = float(acctDataUSD[0]['available'])
 			printCapitalValid = bool(logCapital == True)

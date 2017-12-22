@@ -1,6 +1,6 @@
 # Trinitum
 
-Algorithmic cryptocurrency trading in as little as 10 lines of Python.
+Algorithmic cryptocurrency trading in as little as 10 lines of Python. USE AT YOUR OWN RISK. 
 
 ## Installation
 ```

@@ -73,10 +73,10 @@ class AsyncPipelineManager(AsyncTaskManager):
 
 class AsyncStrategyManager(AsyncTaskManager):
 	
-	def __init__(self, dbReference, connection, strat, logger): 		
+	def __init__(self, dbReference, connection, logger): 		
 		
 		super().__init__(dbReference, connection, logger)
-		self.strategy = strat
+		self.strategy = None
 		self.tradingRef = self.dbReference.table('PositionCache')
 
 	async def tryStrategy(self, tickData): #read
@@ -103,13 +103,13 @@ class AsyncStatisticsManager(AsyncTaskManager):
 		self.CapitalStatsRef = self.dbReference.table('CapitalData')
 
 		self.RiskStatsRef = self.dbReference.table('RiskData')
-		self.riskProfile = None #not permanent
+		#self.riskProfile = None #not permanent
 
 	async def updateRiskStatistics(self):
 		
-		
-		analyticsDict = self.riskProfile.getAnalytics()
-		self.RiskStatsRef.update(analyticsDict).run(self.connection)
+		#analyticsDict = self.riskProfile.getAnalytics()
+		#self.RiskStatsRef.update(analyticsDict).run(self.connection)
+		self.RiskStatsRef.update({}).run(self.connection)
 		await asyncio.sleep(0)
 
 	async def updateCapitalStatistics(self, logCapital=False):
@@ -162,10 +162,11 @@ class AsyncTradingManager(AsyncTaskManager):
 		self.gdaxAuthClient = AuthenticatedClient(*authData)
 
 		from .Constants import NOT_SET
-		self.symbol, self.quantity, self.tolerance, self.poslimit = (NOT_SET,)*4
+		#self.symbol, self.quantity, self.tolerance, self.poslimit = (NOT_SET,)*4
+		self.symbol, self.quantity, self.riskProfile, self.riskParams = (NOT_SET,)*4
 
-		from .Utilities import getObjectDict
-		self.getObjectDict = getObjectDict
+		#from .Utilities import getObjectDict
+		#self.getObjectDict = getObjectDict
 
 	def validPosLimitCheck(self):
 		return bool((len(self.pullTableContents(self.pCacheRef))+1) <= self.poslimit)
@@ -173,7 +174,7 @@ class AsyncTradingManager(AsyncTaskManager):
 	async def createOrders(self, stratVerdict): #read
 
 		entryOrder = None
-		validEntryVerdict = stratVerdict == 1
+		validEntryVerdict = (stratVerdict == 1)
 
 		if (validEntryVerdict and self.validPosLimitCheck()):
 			from .Order import Order
@@ -284,7 +285,8 @@ class AsyncTradingManager(AsyncTaskManager):
 	async def addToPositionCache(self, position): #write
 
 		if (position is not None):
-			pDict = self.getObjectDict(position)
+			from .Utilities import getObjectDict
+			pDict = getObjectDict(position)
 			self.pCacheRef.insert(pDict).run(self.connection)
 		
 		await asyncio.sleep(0)
@@ -297,14 +299,15 @@ class AsyncBookManager(AsyncTaskManager):
 		self.orderBookRef = self.dbReference.table('OrderBook')
 		self.posBookRef = self.dbReference.table("PositionBook")
 
-		from .Utilities import getObjectDict
-		self.getObjectDict = getObjectDict
+		#from .Utilities import getObjectDict
+		#self.getObjectDict = getObjectDict
 
 	async def addToOrderBook(self, orderObjs): #write
 		
 		if (orderObjs != [None]):
+			from .Utilities import getObjectDict
 			for orderObj in orderObjs:
-				oDict = self.getObjectDict(orderObj)
+				oDict = getObjectDict(orderObj)
 				self.orderBookRef.insert(oDict).run(self.connection)
 
 		await asyncio.sleep(0)
@@ -312,8 +315,9 @@ class AsyncBookManager(AsyncTaskManager):
 	async def addToPositionBook(self, positions): #write
 
 		if (positions != [None]):
+			from .Utilities import getObjectDict
 			for position in positions:
-				pDict = self.getObjectDict(position)
+				pDict = getObjectDict(position)
 				self.posBookRef.insert(pDict).run(self.connection)
 			
 		await asyncio.sleep(0)

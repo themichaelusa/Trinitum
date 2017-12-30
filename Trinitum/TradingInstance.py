@@ -1,5 +1,5 @@
 import time
-import rethinkdb as r
+#import rethinkdb as r
 
 """ 
 The TradingInstance class is the operational hub of Trinitum.
@@ -9,11 +9,16 @@ and perform trading activities with it.
 
 class TradingInstance(object):
 	
-	def __init__(self, name):
+	def __init__(self, name, strategy, profile=None):
 
 		self.name, self.NONE = name, "None"
-		self.auth, self.exchange, self.symbol = (None,)*3
+		self.strategy, self.profile = strategy, profile
+		self.auth, self.exchange, self.symbol, self.quantity = (None,)*4
+				
+		from .Constants import DEFAULT_IND_LAG, DEFAULT_SYS_LAG 
+		self.indicatorLag, self.systemLag = DEFAULT_IND_LAG, DEFAULT_SYS_LAG
 
+		"""
 		from .Constants import DEFAULT_QUANTITY, DEFAULT_RISK_TOL, DEFAULT_POS_LIMIT
 		from .Constants import DEFAULT_IND_LAG, DEFAULT_SYS_LAG 
 		self.quantity = DEFAULT_QUANTITY
@@ -21,8 +26,9 @@ class TradingInstance(object):
 		self.poslimit = DEFAULT_POS_LIMIT
 		self.indicatorLag = DEFAULT_IND_LAG
 		self.systemLag = DEFAULT_SYS_LAG 
-		self.techInds = None
+		#self.techInds = None
 		self.riskProfile = None
+		"""
 
 		self.conn = None
 		self.dbRef = None
@@ -33,13 +39,14 @@ class TradingInstance(object):
 	The initDatabase function has one purpose; create a local RethinkDB
 	instance using the name provided by the Gem class.
 	"""
-	def initDatabase(self, hostname = "localhost", port = 28015): 
+	def initDatabase(self, hostname="localhost", port=28015): 
 
 		#from Utilities import createRDB_Instance
 		#createRDB_Instance()
 		#print("CREATING RETHINK_DB INSTANCE")
 		#time.sleep(5)
-
+		
+		import rethinkdb as r
 		r.db_create(self.name).run(r.connect(hostname, port))
 		self.conn = r.connect(hostname, port)
 		self.dbRef = r.db(self.name)
@@ -129,9 +136,11 @@ class TradingInstance(object):
 	def setLagParams(self, indicatorLag, systemLag):
 		self.indicatorLag, self.systemLag = indicatorLag, systemLag
 
+	"""
 	def generateRiskProfile(self, analyticsDict):
 		from RiskAnalysis import RiskProfile
 		self.riskProfile = RiskProfile(analyticsDict)
+	"""
 
 	"""
 	The generateTechIndObjects function creates realtime_talib Indicator objects 
@@ -157,7 +166,7 @@ class TradingInstance(object):
 	"""
 	The start function creates the RethinkDB instance 
 	"""
-	def start(self, stratName, stratFunc):
+	def start(self):
 	
 		self.initDatabase()
 		self.initPipelineTables()
@@ -165,16 +174,19 @@ class TradingInstance(object):
 		self.initTradingTable()
 		self.initBookTables()
 
-		from .Strategy import Strategy
+		#from .Strategy import Strategy
 		from .DatabaseManager import DatabaseManager
-		strat = Strategy(stratName, stratFunc)
-		self.databaseManager = DatabaseManager(self.dbRef, self.conn, strat, self.auth, self.logger)
-		self.databaseManager.setTradingParameters(self.symbol, self.quantity, self.tolerance, self.poslimit)
-		self.databaseManager.setRiskProfile(self.riskProfile)
+		#strat = Strategy(stratName, stratFunc)
+		self.databaseManager = DatabaseManager(self.dbRef, self.conn, self.auth, self.logger)
+		self.databaseManager.setTradingParameters(self.symbol, self.quantity, self.strategy, self.profile)
+
+		#self.databaseManager.setTradingParameters(self.symbol, self.quantity, self.tolerance, self.poslimit)
+		#self.databaseManager.setRiskProfile(self.riskProfile)
 
 	def run(self, endTime, histInterval, histPeriod, endCode): 
 
 		from .Pipeline import Pipeline
+		"""
 		from .Constants import GDAX_TO_POLONIEX
 		from .Utilities import dateToUNIX, getCurrentDateStr, datetimeDiff, getCurrentTimeUNIX
 
@@ -182,13 +194,15 @@ class TradingInstance(object):
 		endTimeUNIX = dateToUNIX(endTime)
 		startDate = getCurrentDateStr()
 		priorDate = datetimeDiff(startDate, histPeriod)
-
 		gdaxTicker = GDAX_TO_POLONIEX[self.symbol]
 		histData = plInstance.getCryptoHistoricalData(gdaxTicker, priorDate, startDate)	
+		"""
+		histData = Pipeline.getCryptoHistoricalData(self.symbol, endTime, histPeriod)
 		self.generateTechIndObjects(histData)
 		sysStart = 'TRADING_INSTANCE ' + self.name + ' INIT'
 		self.logger.addEvent('system', sysStart)
 
+		"""
 		try:
   			while (endTimeUNIX > getCurrentTimeUNIX()):
   				self.runSystemLogic()
@@ -197,7 +211,9 @@ class TradingInstance(object):
 			stackTrace = getStackTrace(e)
 			self.logger.addEvent('system', ('INSTANCE_CRASH: ' + str(e)))
 			self.logger.addEvent('system', ('INSTANCE_CRASH_STACKTRACE: ' + str(stackTrace)))
-
+		"""
+		while (endTimeUNIX > getCurrentTimeUNIX()):
+			self.runSystemLogic()
 		self.end(endCode)
 
 	def runSystemLogic(self):
@@ -250,7 +266,7 @@ class TradingInstance(object):
 	def end(self, endCode): 
 
 		from .Constants import SOFT_EXIT, HARD_EXIT
-		#TODO: Verify the safety and robustness of the 
+		#TODO: Verify the safety and robustness of the SOFT_EXIT
 
 		if (endCode == SOFT_EXIT): 
 			try:
@@ -283,7 +299,8 @@ class TradingInstance(object):
 		rStats, cStats, oBook, pBook = self.databaseManager.collectInstData()
 		sysEnd = 'TRADING_INSTANCE ' + self.name + ' END'
 		self.logger.addEvent('system', sysEnd)
-		r.db_drop(self.name).run(self.conn)
+		from rethinkdb import db_drop
+		db_drop(self.name).run(self.conn)
 
 		# RDB directory removal too unintuitive for end user 
 		#from .Utilities import removeRDB_Direc

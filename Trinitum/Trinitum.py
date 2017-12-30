@@ -24,26 +24,38 @@ class TrinitumInstance(object):
 	def __init__(self, name, symbol, quantity):
 		
 		self.name, self.symbol, self.quantity = name, symbol, quantity
-		self.stratName, self.stratRef = (None,)*2
-		self.inds, self.riskAnalytics = {},{}
-
 		self.exchange, self.key, self.password, self.secret = (None,)*4
+		self.strategy, self.profile = (None,)*2
 		self.histInterval, self.histPeriod = (300,)*2
 
-		from .Constants import DEFAULT_RISK_TOL, DEFAULT_POS_LIMIT
 		from .Constants import DEFAULT_IND_LAG, DEFAULT_SYS_LAG
 		self.indicatorLag, self.systemLag = DEFAULT_IND_LAG, DEFAULT_SYS_LAG
-		self.tolerance, self.poslimit = DEFAULT_RISK_TOL, DEFAULT_POS_LIMIT
-
-	def addIndicator(self, indicator, *indArgs):
-		self.inds.update({indicator: indArgs})
 
 	def addStrategy(self, stratName, stratRef):
-		self.stratName, self.stratRef = stratName, stratRef
+		from .Strategy import Strategy
+		self.strategy = Strategy(stratName, stratRef)
+
+	def addIndicator(self, indicator, *indArgs):
+		self.strategy.addIndicator(indicator, *indArgs)
+
+	def addRiskProfile(self, rpName, profileRef, params={}):
+		from .RiskAnalysis import RiskProfile
+		if params == {}:
+			from .Constants import DEFAULT_RISK_PARAMETERS
+			self.profile = RiskProfile(rpName, profileRef, DEFAULT_RISK_PARAMETERS)
+		else:
+			self.profile = RiskProfile(rpName, profileRef, params)
+
+	def addRiskAnalytic(self, name):
+		self.profile.addAnalytic(name)
 
 	def setHistDataParams(self, histInterval=300, histPeriod=300):
 		self.histInterval, self.histPeriod = histInterval, histPeriod
-		
+
+	def importLiveData(self, location="DataBank", name=None): pass
+
+	def importDataSet(self, location="DataBank", name=None): pass
+
 class Gem(TrinitumInstance):
 	
 	def __init__(self, name, symbol, quantity):
@@ -52,15 +64,17 @@ class Gem(TrinitumInstance):
 	def addExchangeCredentials(self, exchange, key=None, password=None, secret=None):
 		self.exchange, self.key, self.password, self.secret = exchange, key, password, secret
 
-	def addRiskAnalytic(self, name, *riskArgs):
-		self.riskAnalytics.update({name: riskArgs})
+	def addRiskParameters(self, riskParameters=None):
+		from .Constants import DEFAULT_RISK_PARAMETERS
+		if riskParameters == None:
+			self.riskParameters = DEFAULT_RISK_PARAMETERS
+		else:
+			self.riskParameters = riskParameters
 
-	def addRiskParameters(self, poslimit=1, tolerance=.05):
-		self.poslimit, self.tolerance = poslimit, tolerance
-
-	def addAdvancedParameters(self, indicatorLag=1, systemLag=1):
+	def addAdvancedParameters(self, indicatorLag=1, systemLag=0):
 		self.indicatorLag, self.systemLag = indicatorLag, systemLag
 
+	"""
 	def run(self, endTime, endCode=0):
 		
 		from .TradingInstance import TradingInstance
@@ -73,4 +87,13 @@ class Gem(TrinitumInstance):
 		tri.createLoggerInstance((self.name + 'syslog'))
 		tri.start(self.stratName, self.stratRef)
 		tri.run(endTime, self.histInterval, self.histPeriod, endCode)	
-		
+	"""
+	
+class Template:
+	"""
+	def __init__(self, arg):
+		self.arg = arg
+	"""
+	@staticmethod
+	def generate(): pass
+				

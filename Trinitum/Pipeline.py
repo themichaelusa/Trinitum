@@ -1,6 +1,5 @@
 import time
 import json
-from .Utilities import dateToUNIX, flattenList
 import pandas as pd
 import numpy as np
 
@@ -12,11 +11,20 @@ class Pipeline(object):
 		self.POLO_URL = 'https://poloniex.com/public'
 		self.POLO_HIST_DATA = self.POLO_URL + '?command=returnChartData&currencyPair={}&start={}&end={}&period={}'
 
-	def getCryptoHistoricalData(self, currencyPair, startDate, endDate, vwap = False):
+	@staticmethod
+	def getCryptoHistoricalData(symbol, endTime, histPeriod, vwap=False):
 
-		stDateUNIX = dateToUNIX(startDate)
-		eDateUNIX = dateToUNIX(endDate)
-		poloniexJsonURL = self.POLO_HIST_DATA.format(currencyPair, stDateUNIX, eDateUNIX, self.interval)
+		from .Constants import GDAX_TO_POLONIEX
+		from .Utilities import dateToUNIX, getCurrentDateStr, datetimeDiff, getCurrentTimeUNIX
+
+		endTimeUNIX = dateToUNIX(endTime)
+		startDate = getCurrentDateStr()
+		priorDate = datetimeDiff(startDate, histPeriod)
+		gdaxTicker = GDAX_TO_POLONIEX[symbol]
+
+		stDateUNIX = dateToUNIX(priorDate)
+		eDateUNIX = dateToUNIX(startDate)
+		poloniexJsonURL = self.POLO_HIST_DATA.format(gdaxTicker, stDateUNIX, eDateUNIX, self.interval)
 
 		import requests
 		poloniexJson = requests.get(poloniexJsonURL).json()
@@ -66,3 +74,21 @@ class Formatter(object):
 		return np.cumsum(v*(h+l)/2)/np.cumsum(v)
 
 	def dfToHeikenAshi(self, dataframe): pass
+
+"""
+class DataBank:
+
+	def __init__(self): 
+		self.bank = {
+			"BTC_BLOCKCHAIN_STATS": getBtcBlockchainStats,
+		}
+
+	def getBtcBlockchainStats(self):
+		import requests
+		return requests.get('https://api.blockchain.info/stats').json()
+
+class DataStore:
+	def __init__(self): 
+		self.pool = {}
+"""
+		

@@ -1,24 +1,28 @@
-import empyrical
 
 class RiskProfile(object):
 
-    def __init__(self, riskDict, returns=None, riskFree=None):
-        self.selected = riskDict
-        self.analytics = RiskAnalytics()
+    def __init__(self, name, ref, params):
+        self.analyticsObj = RiskAnalytics()
+        self.analyticsList = []
+        self.parameters = params
 
     def updateRiskFreeRate(self, newRate):
         if type(newRate) == float:
-            self.analytics.riskFreeRate = newRate
+            self.analyticsObj.riskFreeRate = newRate
 
     def updateReturns(self, newReturns):
         if type(newReturns) == float:
-            self.analytics.returns = newReturns
+            self.analyticsObj.returns = newReturns
+
+    def addAnalytic(self, analyticName):
+        self.analyticsList.append(analyticName)
 
     def getAnalytics(self):
-        return [self.analytics.getAnalytic(k,v) for k,v in self.selected.values()]
+        return {a:self.analyticsObj.getAnalytic(a) for a in self.analyticsList}
         
 class RiskAnalytics(object):
-
+    
+    import empyrical
     def __init__(self):
 
         self.funcDict = {
@@ -30,13 +34,21 @@ class RiskAnalytics(object):
         'ANNUAL_RETURNS': self.getAnnualReturn,
         'CUMULATIVE_RETURNS': self.getCumReturns,
         'ANNUAL_VOLATILITY': self.getAnnualVolatility,
-        'DOWNSIDE_RISK': self.getDownsideRisk
+        'DOWNSIDE_RISK': self.getDownsideRisk,
+        'CALMAR_RATIO': self.getCalmarRatio,
+        'SORTINO_RATIO': self.getSortinoRatio,
+        'OMEGA_RATIO': self.getOmegaRatio
         }
 
         self.returns, self.riskFreeRate = None, None
 
+    """
     def getAnalytic(self, key, value):
-        return self.funcDict[key](*value)
+        return float(self.funcDict[key](*value))
+    """
+
+    def getAnalytic(self, key):
+        return float(self.funcDict[key]())
     
     def getMaxDrawdown(self):
         return empyrical.max_drawdown(self.returns)
@@ -53,7 +65,7 @@ class RiskAnalytics(object):
     def getCAGR(self, period='daily', annualization=None):
         return empyrical.cagr(self.returns, period, annualization)
 
-    def getAnnualReturn(self, period='daily', annualization=None)
+    def getAnnualReturn(self, period='daily', annualization=None):
         return empyrical.annual_return(self.returns, period, annualization)
 
     def getCumReturns(self, starting_value=0):
@@ -65,13 +77,11 @@ class RiskAnalytics(object):
     def getDownsideRisk(self, required_return=0, period='daily', annualization=None):
         return empyrical.downside_risk(self.returns, required_return, period, annualization)
 
-    """
-    def getCalmarRatio(returns, period='daily', annualization=None)
+    def getCalmarRatio(returns, period='daily', annualization=None):
         return empyrical.calmar_ratio(returns, period, annualization)
 
     def getOmegaRatio(returns, risk_free=0.0, required_return=0.0, annualization=252):
-        return empyrical.omega_ratio(returns, risk_free=, required_return, annualization)
+        return empyrical.omega_ratio(returns, risk_free, required_return, annualization)
 
     def getSortinoRatio(returns, required_return=0, period='daily', annualization=None, _downside_risk=None):
         return empyrical.sortino_ratio(returns, required_return, period,  annualization, _downside_risk)
-    """

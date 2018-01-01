@@ -28,70 +28,71 @@ class AsyncPipelineManager(AsyncTaskManager):
 
 		self.formatter = Formatter()
 		self.gdaxPublicClient = PublicClient()
-		self.spotDataRef = self.dbReference.table('SpotData')
-		self.techIndsRef = self.dbReference.table('TechIndicators')
-		self.spotPrice, self.spotVolume, self.symbol = (None,)*3
+		self.symbol, self.techInds, self.spotInds = (None,)*3
+	
+		from .Constants import DEFAULT_SPOT_DATA_DICT
+		self.spotData = DEFAULT_SPOT_DATA_DICT
 
 	async def updateSpotData(self): #write
 
 		try:
 			spotData = dict(self.gdaxPublicClient.get_product_ticker(self.symbol))
-			self.spotPrice, self.spotVolume = float(spotData['price']), float(spotData['volume'])
-			self.spotDataRef.update(spotData).run(self.connection)		
+			self.spotData['price'] = float(spotData['price'])
+			self.spotData['volume']	= float(spotData['volume'])
 
 		except BaseException as e: 
 			self.logger.addEvent('trading', ('UPDATE_SPOT_DATA_ERROR: ' + str(e)))
 
 		await asyncio.sleep(0)
 
-	async def updateTechIndicators(self, techIndsList, lag = 1): #write
+	async def updateTechIndicators(self, lag=1): #write
 
 		try:
 			OHLCV = list(self.gdaxPublicClient.get_product_24hr_stats(self.symbol).values())[:3]
 			OHLCV = [float(data) for data in OHLCV]
-			OHLCV.extend([self.spotPrice, self.spotVolume])
+			OHLCV.extend([self.spotData['price'], self.spotData['volume']])
 
-			techIndDict = {}
-			for ind in techIndsList:
-				techIndDict.update({ind.tbWrapper.indicator: ind.getRealtime(OHLCV, lag)})
+			for ind in self.techInds:
+				self.spotInds[ind.tbWrapper.indicator] = ind.getRealtime(OHLCV, lag)
 			
-			self.techIndsRef.update(techIndDict).run(self.connection)
-
 		except BaseException as e: 
 			self.logger.addEvent('trading', ('UPDATE_TECH_INDS_ERROR: ' + str(e)))
 
 		await asyncio.sleep(0)
 
-	async def pullPipelineData(self): #read
+	async def formatPipelineData(self): #read
 
-		sdData = self.pullTableContents(self.spotDataRef)
-		tiData = self.pullTableContents(self.techIndsRef)
-		formattedStratData = self.formatter.formatStratData(sdData[0], tiData[0])
-		
+		formattedStratData = self.formatter.formatStratData(self.spotData, self.spotInds)
 		await asyncio.sleep(0)
 		return formattedStratData
 
 class AsyncStrategyManager(AsyncTaskManager):
 	
 	def __init__(self, dbReference, connection, logger): 		
-		
 		super().__init__(dbReference, connection, logger)
-		self.strategy = None
 		self.tradingRef = self.dbReference.table('PositionCache')
+		self.strategy = None
 
-	async def tryStrategy(self, tickData): #read
+	async def tryEntryStrategy(self, tickData, riskData): #execute
+		tradeResult = self.strategy.tryTradeStrategy(tickData) 
+		riskResult = self.strategy.tryRiskStrategy(riskData)
 
-		result = self.strategy.tryStrategy(tickData)
+		if (tradeResult == 1 and riskResult == 1): 
+			self.logger.addEvent('strategy', 'POSITION ENTRY CONDITIONS VALID')
 		
-		if (result == 1): 
-			self.logger.addEvent('strategy', 'ENTRY CONDS VALID')
-		if (result == -1):
+		await asyncio.sleep(0)
+		return tradeResult
+
+	async def tryExitStrategy(self, tickData, targetPos): #execute
+		tradeResult = self.strategy.tryTradeStrategy(tickData) 
+		
+		if (tradeResult == -1):
 			pCacheSize = int(self.tradingRef.count().run(self.connection))
 			if (pCacheSize > 0):
-				self.logger.addEvent('strategy', 'EXIT CONDS VALID')
+				self.logger.addEvent('strategy', 'POSITION EXIT CONDITIONS VALID')
 
 		await asyncio.sleep(0)
-		return result
+		return tradeResult
 
 class AsyncStatisticsManager(AsyncTaskManager):
 
@@ -100,16 +101,13 @@ class AsyncStatisticsManager(AsyncTaskManager):
 		super().__init__(dbReference, connection, logger)
 		from gdax import AuthenticatedClient
 		self.gdaxAuthClient = AuthenticatedClient(*authData)
-		self.CapitalStatsRef = self.dbReference.table('CapitalData')
 
-		self.RiskStatsRef = self.dbReference.table('RiskData')
-		#self.riskProfile = None #not permanent
+		from .Constants import DEFAULT_CAPITAL_DICT
+		self.capitalStats = DEFAULT_CAPITAL_DICT
+		self.riskStats, self.riskProfile = (None,)*2
 
 	async def updateRiskStatistics(self):
-		
-		#analyticsDict = self.riskProfile.getAnalytics()
-		#self.RiskStatsRef.update(analyticsDict).run(self.connection)
-		self.RiskStatsRef.update({}).run(self.connection)
+		self.riskStats = self.riskProfile.getAnalytics()
 		await asyncio.sleep(0)
 
 	async def updateCapitalStatistics(self, logCapital=False):
@@ -120,34 +118,24 @@ class AsyncStatisticsManager(AsyncTaskManager):
 			availibleCapitalUSD = float(acctDataUSD[0]['available'])
 			printCapitalValid = bool(logCapital == True)
 			
-			capitalDict = {
-			'capital': availibleCapitalUSD, 
-			"commission": 'None', 
-			"return": 'None'
-			}
-
 			if(printCapitalValid):
 				capitalCheck = "Current Capital: " + str(availibleCapitalUSD)
 				self.logger.addEvent('statistics', capitalCheck)
-
-			self.CapitalStatsRef.update(capitalDict).run(self.connection)
+			self.capitalStats['capital'] = availibleCapitalUSD
 
 		except BaseException as e: 
 			self.logger.addEvent('trading', ('GDAX_AUTHCLIENT_GET_ACCOUNTS_ERROR: ' + str(e)))
 
 		await asyncio.sleep(0)
 
-	async def pullRiskStatistics(self): 
+	def pullRiskStatistics(self, pullRiskParams=False): 
+		if pullRiskParams:
+			return self.riskStats, self.riskProfile.parameters
+		else:
+			return self.riskStats
 
-		RiskStats = self.pullTableContents(self.RiskStatsRef)
-		await asyncio.sleep(0)
-		return RiskStats[0]
-
-	async def pullCapitalStatistics(self): 
-
-		CapitalStats = self.pullTableContents(self.CapitalStatsRef)
-		await asyncio.sleep(0)
-		return CapitalStats[0]
+	def pullCapitalStatistics(self): 
+		return self.capitalStats
 	
 class AsyncTradingManager(AsyncTaskManager):
 
@@ -162,15 +150,12 @@ class AsyncTradingManager(AsyncTaskManager):
 		self.gdaxAuthClient = AuthenticatedClient(*authData)
 
 		from .Constants import NOT_SET
-		#self.symbol, self.quantity, self.tolerance, self.poslimit = (NOT_SET,)*4
 		self.symbol, self.quantity, self.riskProfile, self.riskParams = (NOT_SET,)*4
-
-		#from .Utilities import getObjectDict
-		#self.getObjectDict = getObjectDict
 
 	def validPosLimitCheck(self):
 		return bool((len(self.pullTableContents(self.pCacheRef))+1) <= self.poslimit)
 
+	"""
 	async def createOrders(self, stratVerdict): #read
 
 		entryOrder = None
@@ -184,6 +169,7 @@ class AsyncTradingManager(AsyncTaskManager):
 
 		await asyncio.sleep(0)
 		return entryOrder
+	"""
 
 	async def verifyAndEnterPosition(self, entryOrder, capitalStats, spotPrice): #read
 
@@ -298,9 +284,6 @@ class AsyncBookManager(AsyncTaskManager):
 		super().__init__(dbReference, connection, logger)
 		self.orderBookRef = self.dbReference.table('OrderBook')
 		self.posBookRef = self.dbReference.table("PositionBook")
-
-		#from .Utilities import getObjectDict
-		#self.getObjectDict = getObjectDict
 
 	async def addToOrderBook(self, orderObjs): #write
 		

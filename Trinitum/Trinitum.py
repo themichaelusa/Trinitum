@@ -22,7 +22,6 @@ how the system actually trades.
 class TrinitumInstance(object):
 
 	def __init__(self, name, symbol, quantity):
-		
 		self.name, self.symbol, self.quantity = name, symbol, quantity
 		self.exchange, self.key, self.password, self.secret = (None,)*4
 		self.strategy, self.profile = (None,)*2
@@ -38,13 +37,15 @@ class TrinitumInstance(object):
 	def addIndicator(self, indicator, *indArgs):
 		self.strategy.addIndicator(indicator, *indArgs)
 
-	def addRiskProfile(self, rpName, profileRef, params={}):
-		from .RiskAnalysis import RiskProfile
+	def addRiskProfile(self, rpName, riskRef, params={}):
+		from .RiskProfile import RiskProfile
 		if params == {}:
 			from .Constants import DEFAULT_RISK_PARAMETERS
-			self.profile = RiskProfile(rpName, profileRef, DEFAULT_RISK_PARAMETERS)
+			self.profile = RiskProfile(rpName, DEFAULT_RISK_PARAMETERS)
 		else:
-			self.profile = RiskProfile(rpName, profileRef, params)
+			self.profile = RiskProfile(rpName, params)
+
+		self.profile.riskRef = riskRef
 
 	def addRiskAnalytic(self, name):
 		self.profile.addAnalytic(name)
@@ -58,8 +59,10 @@ class TrinitumInstance(object):
 
 class Gem(TrinitumInstance):
 	
-	def __init__(self, name, symbol, quantity):
+	def __init__(self, name, symbol, quantity, sandbox=False):
 		super().__init__(name, symbol, quantity)
+		self.sandbox = sandbox
+		self.sysLogic = None
 
 	def addExchangeCredentials(self, exchange, key=None, password=None, secret=None):
 		self.exchange, self.key, self.password, self.secret = exchange, key, password, secret
@@ -74,26 +77,23 @@ class Gem(TrinitumInstance):
 	def addAdvancedParameters(self, indicatorLag=1, systemLag=0):
 		self.indicatorLag, self.systemLag = indicatorLag, systemLag
 
-	"""
+	def addCustomSysLogic(self, logic):
+		if (self.sandbox):
+			self.sysLogic = logic
+
 	def run(self, endTime, endCode=0):
-		
 		from .TradingInstance import TradingInstance
-		tri = TradingInstance(self.name)
+		tri = TradingInstance(self.name, self.strategy, self.profile)
 		
 		tri.setExchangeAuthCredentials(self.key, self.secret, self.password)
 		tri.setSymbol(self.exchange, self.symbol, self.quantity)
-		tri.setTradingParams(self.inds, self.tolerance, self.poslimit)
 		tri.setLagParams(self.indicatorLag, self.systemLag)
 		tri.createLoggerInstance((self.name + 'syslog'))
-		tri.start(self.stratName, self.stratRef)
+
+		tri.start()
 		tri.run(endTime, self.histInterval, self.histPeriod, endCode)	
-	"""
 	
 class Template:
-	"""
-	def __init__(self, arg):
-		self.arg = arg
-	"""
 	@staticmethod
 	def generate(): pass
 				

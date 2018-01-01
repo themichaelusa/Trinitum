@@ -1,7 +1,3 @@
-import time
-import json
-import pandas as pd
-import numpy as np
 
 class Pipeline(object):
 
@@ -11,8 +7,7 @@ class Pipeline(object):
 		self.POLO_URL = 'https://poloniex.com/public'
 		self.POLO_HIST_DATA = self.POLO_URL + '?command=returnChartData&currencyPair={}&start={}&end={}&period={}'
 
-	@staticmethod
-	def getCryptoHistoricalData(symbol, endTime, histPeriod, vwap=False):
+	def getCryptoHistoricalData(self, symbol, endTime, histPeriod, vwap=False):
 
 		from .Constants import GDAX_TO_POLONIEX
 		from .Utilities import dateToUNIX, getCurrentDateStr, datetimeDiff, getCurrentTimeUNIX
@@ -26,9 +21,11 @@ class Pipeline(object):
 		eDateUNIX = dateToUNIX(startDate)
 		poloniexJsonURL = self.POLO_HIST_DATA.format(gdaxTicker, stDateUNIX, eDateUNIX, self.interval)
 
+		import json
 		import requests
 		poloniexJson = requests.get(poloniexJsonURL).json()
 
+		from pandas import DataFrame
 		histDataframe = pd.DataFrame.from_records(poloniexJson)
 		histDataframe.drop('quoteVolume', axis=1, inplace=True)
 		histDataframe.drop('weightedAverage', axis=1, inplace=True)
@@ -36,7 +33,8 @@ class Pipeline(object):
 
 		return histDataframe[["date", "open", "high", "low", "close", "volume"]]
 
-	def getRiskFreeRate(self):
+	@staticmethod
+	def getRiskFreeRate():
 		from bs4 import BeautifulSoup
 		import requests
 		treasuryURL = 'https://www.treasury.gov/resource-center/data-chart-center/interest-rates/Pages/TextView.aspx?data=yield'
@@ -59,7 +57,7 @@ class Formatter(object):
 		'volume': float(sdDict['volume'])
 		}
 
-		tiDict.pop('id')
+		#tiDict.pop('id')
 		formattedTiDict = {}
 		for k,v in tiDict.items():
 			unnecessaryTuple = type(v) == list and len(v) == 1  
@@ -70,8 +68,9 @@ class Formatter(object):
 		return stratData
 
 	def generateVWAP(self, histDF): 
+		from numpy import cumsum
 		v, h, l = histDF.v.values, histDF.h.values, histDF.l.values
-		return np.cumsum(v*(h+l)/2)/np.cumsum(v)
+		return cumsum(v*(h+l)/2)/cumsum(v)
 
 	def dfToHeikenAshi(self, dataframe): pass
 

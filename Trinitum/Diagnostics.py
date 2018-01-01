@@ -40,7 +40,6 @@ class ResultFormatter(object):
 		pBookDF.to_csv(self.positionsCSV, sep='\t')
 
 	def statsToTXT(self, captialStats, riskStats):
-
 		capitalStatsList = captialStats.items()
 		riskStatsList = riskStats.items()
 

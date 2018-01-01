@@ -17,5 +17,24 @@ READ_PRIORITY, WRITE_PRIORITY = 2, 3
 GDAX_FUNDS_ERROR = {'message': 'Insufficient funds'}
 
 DEFAULT_QUANTITY, DEFAULT_RISK_TOL, DEFAULT_POS_LIMIT = .01, .05, 1
-DEFAULT_RISK_PARAMETERS = {"posLimit": DEFAULT_POS_LIMIT, "tolerance": DEFAULT_RISK_TOL}
 DEFAULT_IND_LAG, DEFAULT_SYS_LAG = 1, 0
+
+DEFAULT_RISK_PARAMETERS = {
+"posLimit": DEFAULT_POS_LIMIT, 
+"tolerance": DEFAULT_RISK_TOL
+}
+
+DEFAULT_SPOT_DATA_DICT = {
+'price': None,
+'volume': None,
+'bid': None,
+'ask': None
+}
+
+DEFAULT_CAPITAL_DICT = {
+'capital' : None,
+'commission' : None, 
+'returns' : None
+}
+
+

@@ -1,9 +1,8 @@
-import rethinkdb as r
 
 class DatabaseManager(object):
 
 	def __init__(self, dbReference, conn, auth, logger):
-
+		
 		from .AsyncManager import AsyncPipelineManager, AsyncStrategyManager
 		from .AsyncManager import AsyncStatisticsManager, AsyncTradingManager
 		from .AsyncManager import AsyncBookManager
@@ -16,33 +15,30 @@ class DatabaseManager(object):
 		'trading': AsyncTradingManager(dbReference, conn, auth, logger),
 		'books': AsyncBookManager(dbReference, conn, logger)
 		}
-		
-		#self.strat = strat
-		#self.connObj = conn
-		#self.dbReference = dbReference
+	
 		self.rwQueue = AsyncReadWriteQueue(self.classDict)
 
 	def setTradingParameters(self, symbol, quantity, strategy, profile):
 		self.classDict['strategy'].strategy = strategy
-		self.classDict['pipeline'].symbol = symbol
 		tradingClass = self.classDict['trading']
 		tradingClass.symbol = symbol
 		tradingClass.quantity = quantity
 		tradingClass.profile = profile
-		#tradingClass.tolerance = tolerance
-		#tradingClass.poslimit = poslimit
 
-	"""
-	def setRiskProfile(self, profile):
-		if profile is not None:
-			self.classDict['trading'].riskProfile = profile
-	"""
+	def setPipelineParameters(self, symbol, inds):
+		plRef = self.classDict['pipeline']
+		plRef.symbol = symbol
+		plRef.techInds = inds
+		plRef.spotInds = {ind.tbWrapper.indicator: None for ind in inds}
 
 	def read(self, tableName, operation, *opargs): 
 		self.rwQueue.cdRead(tableName, operation, *opargs)
 
 	def write(self, tableName, operation, *opargs): 
 		self.rwQueue.cdWrite(tableName, operation, *opargs)
+
+	def execute(self, tableName, operation, *opargs): 
+		self.read(tableName, operation, *opargs)
 
 	def processTasks(self):
 		return self.rwQueue.processTasks() 

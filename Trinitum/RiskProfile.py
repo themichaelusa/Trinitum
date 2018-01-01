@@ -1,7 +1,7 @@
 
 class RiskProfile(object):
 
-    def __init__(self, name, ref, params):
+    def __init__(self, name, params):
         self.analyticsObj = RiskAnalytics()
         self.analyticsList = []
         self.parameters = params
@@ -41,11 +41,6 @@ class RiskAnalytics(object):
         }
 
         self.returns, self.riskFreeRate = None, None
-
-    """
-    def getAnalytic(self, key, value):
-        return float(self.funcDict[key](*value))
-    """
 
     def getAnalytic(self, key):
         return float(self.funcDict[key]())

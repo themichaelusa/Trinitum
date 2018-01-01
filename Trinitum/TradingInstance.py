@@ -18,18 +18,6 @@ class TradingInstance(object):
 		from .Constants import DEFAULT_IND_LAG, DEFAULT_SYS_LAG 
 		self.indicatorLag, self.systemLag = DEFAULT_IND_LAG, DEFAULT_SYS_LAG
 
-		"""
-		from .Constants import DEFAULT_QUANTITY, DEFAULT_RISK_TOL, DEFAULT_POS_LIMIT
-		from .Constants import DEFAULT_IND_LAG, DEFAULT_SYS_LAG 
-		self.quantity = DEFAULT_QUANTITY
-		self.tolerance = DEFAULT_RISK_TOL
-		self.poslimit = DEFAULT_POS_LIMIT
-		self.indicatorLag = DEFAULT_IND_LAG
-		self.systemLag = DEFAULT_SYS_LAG 
-		#self.techInds = None
-		self.riskProfile = None
-		"""
-
 		self.conn = None
 		self.dbRef = None
 		self.databaseManager = None
@@ -57,6 +45,7 @@ class TradingInstance(object):
 	get dictionaries to base their structure off, as it is static; which means
 	our tables will only be updated, ergo, their schemas never change. 
 	"""
+	"""
 	def initPipelineTables(self): 
 
 		spotData = {
@@ -79,10 +68,12 @@ class TradingInstance(object):
 		self.dbRef.table(techIndsStr).insert(techIndicators).run(self.conn)
 
 	"""
+	"""
 	The initStatisticsTables function has one purpose; create 2 tables inside
 	our RethinkDB instance: RiskData, CaptialData. Our 2 new tables then
 	get dictionaries to base their structure off, as it is static; which means
 	our tables will only be updated, ergo, their schemas never change. 
+	"""
 	"""
 	def initStatisticsTables(self): 
 
@@ -103,6 +94,8 @@ class TradingInstance(object):
 		self.dbRef.table(CapitalDataStr).insert(capitalData).run(self.conn)
 
 	"""
+
+	"""
 	The initTradingTable function has one purpose; create a PositionCache table
 	to store our ongoing postions. This table is dynamic, so we can add additional 
 	Positions and then remove them as we please.
@@ -118,17 +111,15 @@ class TradingInstance(object):
 	so we can add additional Orders and Positions as the Gem keeps trading.
 	"""
 	def initBookTables(self):
-		orderBookStr, PositionBookStr = 'OrderBook', 'PositionBook'
-		self.dbRef.table_create(orderBookStr).run(self.conn)
-		self.logger.addEvent('database', 'CREATED: ' + orderBookStr)
-		self.dbRef.table_create(PositionBookStr).run(self.conn)
-		self.logger.addEvent('database', 'CREATED: ' + PositionBookStr)
+		#orderBookStr, PositionBookStr = 'OrderBook', 'PositionBook'
+		#self.dbRef.table_create(orderBookStr).run(self.conn)
+		#self.logger.addEvent('database', 'CREATED: ' + orderBookStr)
+		positionBook = 'PositionBook'
+		self.dbRef.table_create(positionBook).run(self.conn)
+		self.logger.addEvent('database', 'CREATED: ' + positionBook)
 
 	def setSymbol(self, exchange, symbol, quantity):
 		self.exchange, self.symbol, self.quantity = exchange, symbol, quantity
-
-	def setTradingParams(self, techInds, tolerance, poslimit):
-		self.techInds, self.tolerance, self.poslimit = techInds, tolerance, poslimit
 
 	def setExchangeAuthCredentials(self, key, secret, passphrase):
 		self.auth = (key, secret, passphrase)
@@ -137,21 +128,14 @@ class TradingInstance(object):
 		self.indicatorLag, self.systemLag = indicatorLag, systemLag
 
 	"""
-	def generateRiskProfile(self, analyticsDict):
-		from RiskAnalysis import RiskProfile
-		self.riskProfile = RiskProfile(analyticsDict)
-	"""
-
-	"""
 	The generateTechIndObjects function creates realtime_talib Indicator objects 
 	for every indicator adds with the Gem object method addIndicator. They are used 
 	for calculating the specified TA-Lib indicators in real time, and sending them out
 	to the TechIndicators table in the RethinkDB instance.
 	"""
 	def generateTechIndObjects(self, histDF):
-		if (self.techInds != {}): 
-			from realtime_talib import Indicator
-			self.techInds = [Indicator(histDF,k,*v) for k,v in self.techInds.items()]
+		from realtime_talib import Indicator
+		return [Indicator(histDF,k,*v) for k,v in self.strategy.indicators.items()]
 
 	"""
 	The createLoggerInstance function imports and creates a Logger object, which is responsible 
@@ -169,49 +153,26 @@ class TradingInstance(object):
 	def start(self):
 	
 		self.initDatabase()
-		self.initPipelineTables()
-		self.initStatisticsTables()
+		#self.initPipelineTables()
+		#self.initStatisticsTables()
 		self.initTradingTable()
 		self.initBookTables()
 
-		#from .Strategy import Strategy
 		from .DatabaseManager import DatabaseManager
-		#strat = Strategy(stratName, stratFunc)
 		self.databaseManager = DatabaseManager(self.dbRef, self.conn, self.auth, self.logger)
 		self.databaseManager.setTradingParameters(self.symbol, self.quantity, self.strategy, self.profile)
-
-		#self.databaseManager.setTradingParameters(self.symbol, self.quantity, self.tolerance, self.poslimit)
-		#self.databaseManager.setRiskProfile(self.riskProfile)
 
 	def run(self, endTime, histInterval, histPeriod, endCode): 
 
 		from .Pipeline import Pipeline
-		"""
-		from .Constants import GDAX_TO_POLONIEX
-		from .Utilities import dateToUNIX, getCurrentDateStr, datetimeDiff, getCurrentTimeUNIX
+		plInstance = Pipeline(histInterval)
+		histData = plInstance.getCryptoHistoricalData(self.symbol, endTime, histPeriod)
+		rttInds = self.generateTechIndObjects(histData)
+		self.DatabaseManager.setPipelineParameters(self.symbol, rttInds)
 
-		plInstance, histData = Pipeline(histInterval), None
-		endTimeUNIX = dateToUNIX(endTime)
-		startDate = getCurrentDateStr()
-		priorDate = datetimeDiff(startDate, histPeriod)
-		gdaxTicker = GDAX_TO_POLONIEX[self.symbol]
-		histData = plInstance.getCryptoHistoricalData(gdaxTicker, priorDate, startDate)	
-		"""
-		histData = Pipeline.getCryptoHistoricalData(self.symbol, endTime, histPeriod)
-		self.generateTechIndObjects(histData)
 		sysStart = 'TRADING_INSTANCE ' + self.name + ' INIT'
 		self.logger.addEvent('system', sysStart)
 
-		"""
-		try:
-  			while (endTimeUNIX > getCurrentTimeUNIX()):
-  				self.runSystemLogic()
-		except BaseException as e:
-			from .Utilities import getStackTrace
-			stackTrace = getStackTrace(e)
-			self.logger.addEvent('system', ('INSTANCE_CRASH: ' + str(e)))
-			self.logger.addEvent('system', ('INSTANCE_CRASH_STACKTRACE: ' + str(stackTrace)))
-		"""
 		while (endTimeUNIX > getCurrentTimeUNIX()):
 			self.runSystemLogic()
 		self.end(endCode)
@@ -229,22 +190,22 @@ class TradingInstance(object):
 			stratData = self.databaseManager.processTasks()
 			spotPrice = stratData['price']
 
-			self.databaseManager.read("strategy", "tryStrategy", stratData)
+			self.databaseManager.execute("strategy", "tryStrategy", stratData)
 			stratVerdict = self.databaseManager.processTasks()
 
-			self.databaseManager.read('trading', 'createOrders', stratVerdict)
+			self.databaseManager.execute('trading', 'createOrders', stratVerdict)
 			entryOrder = self.databaseManager.processTasks()
 			potentialEntryOrder = bool(entryOrder != None)
 
 			self.databaseManager.write("statistics", "updateCapitalStatistics", potentialEntryOrder)
-			self.databaseManager.read('trading', 'verifyAndEnterPosition', entryOrder, capitalStats, spotPrice)
+			self.databaseManager.execute('trading', 'verifyAndEnterPosition', entryOrder, capitalStats, spotPrice)
 			filledOrder, entryPos = self.databaseManager.processTasks()
 			potentialPositionEntry = bool(filledOrder != [None])
 			
 			self.databaseManager.write('trading', 'addToPositionCache', entryPos)
 			self.databaseManager.write('books', 'addToOrderBook', filledOrder)
 			self.databaseManager.write("statistics", "updateCapitalStatistics", potentialPositionEntry)
-			self.databaseManager.read('trading', 'exitValidPositions', stratVerdict)
+			self.databaseManager.execute('trading', 'exitValidPositions', stratVerdict)
 			filledExitOrders, completedPositions = self.databaseManager.processTasks()
 			potentialExitMade = bool(potentialPositionEntry or filledExitOrders != [None])
 

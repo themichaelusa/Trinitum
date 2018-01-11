@@ -60,8 +60,7 @@ class AsyncPipelineManager(AsyncTaskManager):
 
 		await asyncio.sleep(0)
 
-	async def formatPipelineData(self): #read
-
+	async def getPipelineData(self): #read
 		formattedStratData = self.formatter.formatStratData(self.spotData, self.spotInds)
 		await asyncio.sleep(0)
 		return formattedStratData
@@ -70,7 +69,6 @@ class AsyncStrategyManager(AsyncTaskManager):
 	
 	def __init__(self, dbReference, connection, logger): 		
 		super().__init__(dbReference, connection, logger)
-		self.tradingRef = self.dbReference.table('PositionCache')
 		self.strategy = None
 
 	async def tryEntryStrategy(self, tickData, riskData): #execute
@@ -83,11 +81,11 @@ class AsyncStrategyManager(AsyncTaskManager):
 		await asyncio.sleep(0)
 		return tradeResult
 
-	async def tryExitStrategy(self, tickData, targetPos): #execute
+	async def tryExitStrategy(self, tickData, targetPos, pCacheSize): #execute
 		tradeResult = self.strategy.tryTradeStrategy(tickData) 
 		
 		if (tradeResult == -1):
-			pCacheSize = int(self.tradingRef.count().run(self.connection))
+			#pCacheSize = int(self.tradingRef.count().run(self.connection))
 			if (pCacheSize > 0):
 				self.logger.addEvent('strategy', 'POSITION EXIT CONDITIONS VALID')
 
@@ -105,8 +103,12 @@ class AsyncStatisticsManager(AsyncTaskManager):
 		from .Constants import DEFAULT_CAPITAL_DICT
 		self.capitalStats = DEFAULT_CAPITAL_DICT
 		self.riskStats, self.riskProfile = (None,)*2
+		self.positionBookRef = self.dbReference.table('PositionBook')
 
 	async def updateRiskStatistics(self):
+		from .Pipeline import getRiskFreeRate
+		self.riskProfile.updateRiskFree(getRiskFreeRate())
+		
 		self.riskStats = self.riskProfile.getAnalytics()
 		await asyncio.sleep(0)
 
@@ -128,13 +130,13 @@ class AsyncStatisticsManager(AsyncTaskManager):
 
 		await asyncio.sleep(0)
 
-	def pullRiskStatistics(self, pullRiskParams=False): 
+	def getRiskStats(self, pullRiskParams=False): 
 		if pullRiskParams:
 			return self.riskStats, self.riskProfile.parameters
 		else:
 			return self.riskStats
 
-	def pullCapitalStatistics(self): 
+	def getCapitalStats(self): 
 		return self.capitalStats
 	
 class AsyncTradingManager(AsyncTaskManager):
@@ -144,18 +146,21 @@ class AsyncTradingManager(AsyncTaskManager):
 		super().__init__(dbReference, connection, logger)
 		from gdax import AuthenticatedClient
 		
-		self.pCacheRef = self.dbReference.table('PositionCache')
-		self.RiskStatsRef = self.dbReference.table('RiskStats')
-		self.CapitalStatsRef = self.dbReference.table('CapitalStats')
+		self.positionCache = []
+		#self.RiskStatsRef = self.dbReference.table('RiskStats')
+		#self.CapitalStatsRef = self.dbReference.table('CapitalStats')
 		self.gdaxAuthClient = AuthenticatedClient(*authData)
 
 		from .Constants import NOT_SET
 		self.symbol, self.quantity, self.riskProfile, self.riskParams = (NOT_SET,)*4
 
-	def validPosLimitCheck(self):
-		return bool((len(self.pullTableContents(self.pCacheRef))+1) <= self.poslimit)
+	def getCacheSize(self):
+		return self.positionCache.size()
 
-	"""
+	def validPosLimitCheck(self):
+		#return bool((len(self.pullTableContents(self.pCacheRef))+1) <= self.poslimit)
+		return bool(self.positionCache.size() <= self.riskParams['posLimit'])
+
 	async def createOrders(self, stratVerdict): #read
 
 		entryOrder = None
@@ -169,7 +174,6 @@ class AsyncTradingManager(AsyncTaskManager):
 
 		await asyncio.sleep(0)
 		return entryOrder
-	"""
 
 	async def verifyAndEnterPosition(self, entryOrder, capitalStats, spotPrice): #read
 

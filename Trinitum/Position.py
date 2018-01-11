@@ -23,7 +23,7 @@ class Position(object):
 	def setExitParams(self, exitPrice, exitTime):
 
 		self.exitPrice = float(exitPrice)
-		self.exitTime = exitTime
+		self.exitTime = int(exitTime)
 
 		self.gain = self.exitPrice - self.entryPrice
 		percentReturn = self.exitPrice/self.entryPrice

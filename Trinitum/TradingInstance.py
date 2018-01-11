@@ -10,7 +10,6 @@ and perform trading activities with it.
 class TradingInstance(object):
 	
 	def __init__(self, name, strategy, profile=None):
-
 		self.name, self.NONE = name, "None"
 		self.strategy, self.profile = strategy, profile
 		self.auth, self.exchange, self.symbol, self.quantity = (None,)*4
@@ -38,62 +37,6 @@ class TradingInstance(object):
 		r.db_create(self.name).run(r.connect(hostname, port))
 		self.conn = r.connect(hostname, port)
 		self.dbRef = r.db(self.name)
-
-	"""
-	The initPipelineTables function has one purpose; create 2 tables inside
-	our RethinkDB instance: SpotData, TechIndicators. Our 2 new tables then
-	get dictionaries to base their structure off, as it is static; which means
-	our tables will only be updated, ergo, their schemas never change. 
-	"""
-	"""
-	def initPipelineTables(self): 
-
-		spotData = {
-		"trade_id": self.NONE,
-		"price": self.NONE,
-		"size": self.NONE,
-		"bid": self.NONE,
-		"ask": self.NONE,
-		"volume": self.NONE,
-		"time": self.NONE
-		}
-
-		techIndicators = dict.fromkeys(self.techInds)
-		spotDataStr, techIndsStr = 'SpotData', 'TechIndicators'
-		self.dbRef.table_create(spotDataStr).run(self.conn)
-		self.logger.addEvent('database', 'CREATED: ' + spotDataStr)
-		self.dbRef.table(spotDataStr).insert(spotData).run(self.conn)
-		self.dbRef.table_create(techIndsStr).run(self.conn)
-		self.logger.addEvent('database', 'CREATED: ' + techIndsStr)
-		self.dbRef.table(techIndsStr).insert(techIndicators).run(self.conn)
-
-	"""
-	"""
-	The initStatisticsTables function has one purpose; create 2 tables inside
-	our RethinkDB instance: RiskData, CaptialData. Our 2 new tables then
-	get dictionaries to base their structure off, as it is static; which means
-	our tables will only be updated, ergo, their schemas never change. 
-	"""
-	"""
-	def initStatisticsTables(self): 
-
-		capitalData = {
-		'capital' : self.NONE, 
-		"commission" : self.NONE, 
-		"return" : self.NONE
-		}
-
-		riskData = {}
-
-		riskDataStr, CapitalDataStr = 'RiskData', 'CapitalData'
-		self.dbRef.table_create(riskDataStr).run(self.conn)
-		self.logger.addEvent('database', 'CREATED: ' + riskDataStr)
-		self.dbRef.table(riskDataStr).insert(riskData).run(self.conn)
-		self.dbRef.table_create(CapitalDataStr).run(self.conn)
-		self.logger.addEvent('database', 'CREATED: ' + CapitalDataStr)
-		self.dbRef.table(CapitalDataStr).insert(capitalData).run(self.conn)
-
-	"""
 
 	"""
 	The initTradingTable function has one purpose; create a PositionCache table
@@ -180,23 +123,27 @@ class TradingInstance(object):
 	def runSystemLogic(self):
 
 		try:
-			self.databaseManager.write("pipeline", "updateSpotData")
-			self.databaseManager.write("statistics", "updateCapitalStatistics")
-			self.databaseManager.read("statistics", "pullCapitalStatistics")
-			capitalStats = self.databaseManager.processTasks()
 
-			self.databaseManager.write("pipeline", "updateTechIndicators", self.techInds, self.indicatorLag)
-			self.databaseManager.read("pipeline", "pullPipelineData")
+			#### UPDATE STATISTICS AND UPDATE DATA ####
+			self.databaseManager.execute("pipeline", "updateSpotData")
+			self.databaseManager.execute("pipeline", "updateTechIndicators", self.indicatorLag)
+			self.databaseManager.read("pipeline", "getPipelineData")
+			self.databaseManager.write("statistics", "updateCapitalStatistics")
+			self.databaseManager.execute('statistics', 'updateRiskStatistics')
+
 			stratData = self.databaseManager.processTasks()
 			spotPrice = stratData['price']
+			riskData = self.databaseManager.classDict['statistics'].getRiskStats()
 
-			self.databaseManager.execute("strategy", "tryStrategy", stratData)
+			#### TRY ENTRY STRATEGY, PLACE ORDERS, ENTER POSITIONS ####
+			self.databaseManager.execute("strategy", "tryEntryStrategy", stratData, riskData)
 			stratVerdict = self.databaseManager.processTasks()
 
 			self.databaseManager.execute('trading', 'createOrders', stratVerdict)
 			entryOrder = self.databaseManager.processTasks()
 			potentialEntryOrder = bool(entryOrder != None)
 
+			capitalStats = self.databaseManager.classDict['statistics'].getCapitalStats()
 			self.databaseManager.write("statistics", "updateCapitalStatistics", potentialEntryOrder)
 			self.databaseManager.execute('trading', 'verifyAndEnterPosition', entryOrder, capitalStats, spotPrice)
 			filledOrder, entryPos = self.databaseManager.processTasks()
@@ -209,6 +156,7 @@ class TradingInstance(object):
 			filledExitOrders, completedPositions = self.databaseManager.processTasks()
 			potentialExitMade = bool(potentialPositionEntry or filledExitOrders != [None])
 
+			#### HOUSEKEEPING, LOGGING FINISHED POSITIONS & ORDERS
 			self.databaseManager.write("statistics", "updateCapitalStatistics", potentialExitMade)
 			self.databaseManager.write('books', 'addToPositionBook', completedPositions)
 			self.databaseManager.write('books', 'addToOrderBook', filledExitOrders)

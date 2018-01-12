@@ -33,19 +33,6 @@ class Pipeline(object):
 
 		return histDataframe[["date", "open", "high", "low", "close", "volume"]]
 
-	@staticmethod
-	def getRiskFreeRate():
-		from bs4 import BeautifulSoup
-		import requests
-		treasuryURL = 'https://www.treasury.gov/resource-center/data-chart-center/interest-rates/Pages/TextView.aspx?data=yield'
-		data = requests.get(treasuryURL).text
-		html = BeautifulSoup(data, 'lxml')
-
-		targetYieldRow = html.find_all('tr', class_='evenrow')
-		floatYield = targetYieldRow[len(targetYieldRow)-1]
-		allYields = floatYield.find_all('td', class_='text_view_data')
-		return float(allYields[2].text)
-
 class Formatter(object):
 
 	def __init__(self): pass
@@ -73,6 +60,18 @@ class Formatter(object):
 		return cumsum(v*(h+l)/2)/cumsum(v)
 
 	def dfToHeikenAshi(self, dataframe): pass
+
+def getRiskFreeRate():
+	from bs4 import BeautifulSoup
+	import requests
+	treasuryURL = 'https://www.treasury.gov/resource-center/data-chart-center/interest-rates/Pages/TextView.aspx?data=yield'
+	data = requests.get(treasuryURL).text
+	html = BeautifulSoup(data, 'lxml')
+
+	targetYieldRow = html.find_all('tr', class_='evenrow')
+	floatYield = targetYieldRow[len(targetYieldRow)-1]
+	allYields = floatYield.find_all('td', class_='text_view_data')
+	return float(allYields[2].text)
 
 """
 class DataBank:

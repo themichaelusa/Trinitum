@@ -17,8 +17,10 @@ class RiskProfile(object):
     def addAnalytic(self, analyticName):
         self.analyticsList.append(analyticName)
 
-    def getAnalytics(self):
-        return {a:self.analyticsObj.getAnalytic(a) for a in self.analyticsList}
+    def getAnalytics(self, funds):
+        analytics = {a:self.analyticsObj.getAnalytic(a) for a in self.analyticsList}
+        analytics.update({'FUNDS': funds})
+        return analytics
         
 class RiskAnalytics(object):
     

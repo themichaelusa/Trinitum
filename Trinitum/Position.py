@@ -1,7 +1,9 @@
+
 class Position(object):
 
 	def __init__(self, ID = None, direction = None, ticker = None, quantity = None, entryPrice = None, entryTime = None):
-		
+		 
+		#### ENTRY PARAMETERS ####
 		self.entID = ID
 		self.direction = direction
 		self.ticker = ticker
@@ -9,6 +11,7 @@ class Position(object):
 		self.entryPrice = float(entryPrice)
 		self.entryTime = entryTime
 
+		#### EXIT PARAMETERS ####
 		from .Constants import NOT_SET
 		self.exID = NOT_SET
 		self.exitPrice = NOT_SET

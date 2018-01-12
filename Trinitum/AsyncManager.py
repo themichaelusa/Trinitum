@@ -81,21 +81,20 @@ class AsyncStrategyManager(AsyncTaskManager):
 		await asyncio.sleep(0)
 		return tradeResult
 
+	"""
 	async def tryExitStrategy(self, tickData, targetPos, pCacheSize): #execute
 		tradeResult = self.strategy.tryTradeStrategy(tickData) 
 		
-		if (tradeResult == -1):
-			#pCacheSize = int(self.tradingRef.count().run(self.connection))
-			if (pCacheSize > 0):
-				self.logger.addEvent('strategy', 'POSITION EXIT CONDITIONS VALID')
+		if (tradeResult == -1 and pCacheSize > 0):
+			self.logger.addEvent('strategy', 'POSITION EXIT CONDITIONS VALID')
 
 		await asyncio.sleep(0)
 		return tradeResult
+	"""
 
 class AsyncStatisticsManager(AsyncTaskManager):
 
 	def __init__(self, dbReference, connection, authData, logger): 		
-		
 		super().__init__(dbReference, connection, logger)
 		from gdax import AuthenticatedClient
 		self.gdaxAuthClient = AuthenticatedClient(*authData)
@@ -142,23 +141,18 @@ class AsyncStatisticsManager(AsyncTaskManager):
 class AsyncTradingManager(AsyncTaskManager):
 
 	def __init__(self, dbReference, connection, authData, logger): 		
-
 		super().__init__(dbReference, connection, logger)
-		from gdax import AuthenticatedClient
-		
-		self.positionCache = []
-		#self.RiskStatsRef = self.dbReference.table('RiskStats')
-		#self.CapitalStatsRef = self.dbReference.table('CapitalStats')
-		self.gdaxAuthClient = AuthenticatedClient(*authData)
-
+		self.positionCache = {}
 		from .Constants import NOT_SET
-		self.symbol, self.quantity, self.riskProfile, self.riskParams = (NOT_SET,)*4
+		self.symbol, self.quantity, self.riskParams = (NOT_SET,)*3
 
+		from gdax import AuthenticatedClient
+		self.gdaxAuthClient = AuthenticatedClient(*authData)
+	
 	def getCacheSize(self):
-		return self.positionCache.size()
+		return self.positionCache.keys().size()
 
 	def validPosLimitCheck(self):
-		#return bool((len(self.pullTableContents(self.pCacheRef))+1) <= self.poslimit)
 		return bool(self.positionCache.size() <= self.riskParams['posLimit'])
 
 	async def createOrders(self, stratVerdict): #read
@@ -168,24 +162,21 @@ class AsyncTradingManager(AsyncTaskManager):
 
 		if (validEntryVerdict and self.validPosLimitCheck()):
 			from .Order import Order
-			entryOrder = Order('ENT', 'B', self.symbol, self.quantity)
+			entryOrder = Order('ENTRY', 'B', self.symbol, self.quantity)
 			orderLog = "Created Order for: " + str(self.symbol) + " at size: " + str(self.quantity)
 			self.logger.addEvent('trading', orderLog)
 
 		await asyncio.sleep(0)
 		return entryOrder
 
-	async def verifyAndEnterPosition(self, entryOrder, capitalStats, spotPrice): #read
+	async def verifyAndEnterPosition(self, entryOrder, currentCapital, spotPrice): #read
 
-		newPosition, currentCapital = None, capitalStats['capital']
+		newPosition = None
 		validEntryConditions = entryOrder is not None and currentCapital > 0
 
-		if (validEntryConditions and self.validPosLimitCheck()): 
-
-			fundToleranceAvailible = currentCapital*self.tolerance > self.quantity
-			#check db for viable kelly criterion values, max draw, etc. (not done)
-			
-			if (fundToleranceAvailible):
+		if validEntryConditions: 
+			fundToleranceAvailible = currentCapital*self.riskParams['tolerance'] > self.quantity			
+			if (fundToleranceAvailible and self.validPosLimitCheck()):
 
 				response = dict(self.gdaxAuthClient.buy(product_id=self.symbol, type='market', funds=self.quantity)) 
 				orderID = response['id']
@@ -207,8 +198,10 @@ class AsyncTradingManager(AsyncTaskManager):
 					entryValue = float(response['executed_value'])
 					orderData = (entryOrder.direction, self.symbol, self.quantity, entryValue, orderFillTime)
 					
+					### CREATE POSITION OBJECT FROM ORDERDATA AND ADD TO POSTION CACHE
 					from .Position import Position
 					newPosition = Position(orderID, *orderData)
+					self.positionCache.update({orderID: newPosition})
 					positionEntered = noErrors + ', Entered Position: ' + str(orderID)
 					self.logger.addEvent('trading', positionEntered)
 
@@ -222,18 +215,21 @@ class AsyncTradingManager(AsyncTaskManager):
 
 	async def exitValidPositions(self, stratVerdict): #read
 
-		positionCache = self.pullTableContents(self.pCacheRef)
-		validExitConditions = stratVerdict == -1 and positionCache != []
+		#positionCache = self.pullTableContents(self.pCacheRef)
+		#validExitConditions = stratVerdict == -1 and positionCache != []
+		pCacheSize = self.getCacheSize()
+		validExitConditions = stratVerdict == -1 and pCacheSize > 0
 		completedPositions, exitOrders = [None], [None]
 
-		if (validExitConditions):
+		if validExitConditions:
 
+			self.logger.addEvent('strategy', 'POSITION EXIT CONDITIONS VALID')
 			sellResponses, completedPositions, exitOrders, response = [], [], [], None
 			self.gdaxAuthClient.cancel_all(product=self.symbol)
 			from .Position import Position
 			from .Order import Order
 
-			for p in positionCache:
+			for p in self.positionCache.values():
 
 				from .Constants import GDAX_FUNDS_ERROR
 				while (response == GDAX_FUNDS_ERROR or response == None):
@@ -247,13 +243,14 @@ class AsyncTradingManager(AsyncTaskManager):
 				completedPositions.append(completedPosition)
 				sellResponses.append(response)
 
-				exitOrder = Order('EX', 'S', self.symbol, self.quantity)
+				exitOrder = Order('EXIT', 'S', self.symbol, self.quantity)
 				exitOrder.setErrorCode("NO_ERRORS")
 				exitOrder.setOrderID(response['id'])
 				exitOrders.append(exitOrder)
 				response = None
 
-			time.sleep(1)
+			#time.sleep(1)
+			self.positionCache.clear()
 
 			for posit, response in zip(completedPositions, sellResponses):
 				
@@ -272,6 +269,7 @@ class AsyncTradingManager(AsyncTaskManager):
 		await asyncio.sleep(0)
 		return (exitOrders, completedPositions)
 
+	"""
 	async def addToPositionCache(self, position): #write
 
 		if (position is not None):
@@ -280,6 +278,7 @@ class AsyncTradingManager(AsyncTaskManager):
 			self.pCacheRef.insert(pDict).run(self.connection)
 		
 		await asyncio.sleep(0)
+	"""
 
 class AsyncBookManager(AsyncTaskManager):
 	

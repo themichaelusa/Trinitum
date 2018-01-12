@@ -124,7 +124,7 @@ class TradingInstance(object):
 
 		try:
 
-			#### UPDATE STATISTICS AND UPDATE DATA ####
+			#### UPDATE STATISTICS AND UPDATE STRATEGY/RISK DATA ####
 			self.databaseManager.execute("pipeline", "updateSpotData")
 			self.databaseManager.execute("pipeline", "updateTechIndicators", self.indicatorLag)
 			self.databaseManager.read("pipeline", "getPipelineData")
@@ -143,14 +143,14 @@ class TradingInstance(object):
 			entryOrder = self.databaseManager.processTasks()
 			potentialEntryOrder = bool(entryOrder != None)
 
-			capitalStats = self.databaseManager.classDict['statistics'].getCapitalStats()
+			currentCapital = self.databaseManager.classDict['statistics'].getCapitalStats()['capital']
 			self.databaseManager.write("statistics", "updateCapitalStatistics", potentialEntryOrder)
-			self.databaseManager.execute('trading', 'verifyAndEnterPosition', entryOrder, capitalStats, spotPrice)
-			filledOrder, entryPos = self.databaseManager.processTasks()
-			potentialPositionEntry = bool(filledOrder != [None])
+			self.databaseManager.execute('trading', 'verifyAndEnterPosition', entryOrder, currentCapital, spotPrice)
+			filledEntryOrder, entryPos = self.databaseManager.processTasks()
+			potentialPositionEntry = bool(filledEntryOrder != [None])
 			
-			self.databaseManager.write('trading', 'addToPositionCache', entryPos)
-			self.databaseManager.write('books', 'addToOrderBook', filledOrder)
+			#### TRY EXIT STRATEGY AND EXIT VALID POSITIONS ####
+			self.databaseManager.write('books', 'addToOrderBook', filledEntryOrder)
 			self.databaseManager.write("statistics", "updateCapitalStatistics", potentialPositionEntry)
 			self.databaseManager.execute('trading', 'exitValidPositions', stratVerdict)
 			filledExitOrders, completedPositions = self.databaseManager.processTasks()

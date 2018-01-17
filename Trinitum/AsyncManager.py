@@ -28,13 +28,13 @@ class AsyncPipelineManager(AsyncTaskManager):
 
 		self.formatter = Formatter()
 		self.gdaxPublicClient = PublicClient()
-		self.symbol, self.techInds, self.spotInds = (None,)*3
+		self.symbol, self.techInds, self.spotInds, self.spotCustom = (None,)*4
 	
-		from .Constants import DEFAULT_SPOT_DATA_DICT
+		from .Constants import DEFAULT_SPOT_DATA_DICT, DEFAULT_CUSTOM_DATA
 		self.spotData = DEFAULT_SPOT_DATA_DICT
+		self.customDataFeeds = DEFAULT_CUSTOM_DATA
 
 	async def updateSpotData(self): #write
-
 		try:
 			spotData = dict(self.gdaxPublicClient.get_product_ticker(self.symbol))
 			self.spotData['price'] = float(spotData['price'])
@@ -46,7 +46,6 @@ class AsyncPipelineManager(AsyncTaskManager):
 		await asyncio.sleep(0)
 
 	async def updateTechIndicators(self, lag=1): #write
-
 		try:
 			OHLCV = list(self.gdaxPublicClient.get_product_24hr_stats(self.symbol).values())[:3]
 			OHLCV = [float(data) for data in OHLCV]
@@ -60,8 +59,16 @@ class AsyncPipelineManager(AsyncTaskManager):
 
 		await asyncio.sleep(0)
 
+	async def runCustomDataFeeds(self):
+		complete = {}
+		for name, ref, args in zip(self.customDataFeeds.items()): 
+			result = ref(*args)
+			complete.update({name: result})
+		self.spotCustom = complete
+		await asyncio.sleep(0)
+
 	async def getPipelineData(self): #read
-		formattedStratData = self.formatter.formatStratData(self.spotData, self.spotInds)
+		formattedStratData = self.formatter.formatStratData(self.spotData, self.spotInds, self.spotCustom)
 		await asyncio.sleep(0)
 		return formattedStratData
 
@@ -104,9 +111,15 @@ class AsyncStatisticsManager(AsyncTaskManager):
 		self.riskStats, self.riskProfile = (None,)*2
 		self.positionBookRef = self.dbReference.table('PositionBook')
 
+	def getReturns(self): 
+		positionBook = self.pullTableContents(self.positionBookRef)
+		positionBook = positionBook[1:]
+		return [p.returns in positionBook if p.returns != None]
+
 	async def updateRiskStatistics(self):
 		from .Pipeline import getRiskFreeRate
 		self.riskProfile.updateRiskFree(getRiskFreeRate())
+		self.riskProfile.updateReturns(getReturns())
 		
 		self.riskStats = self.riskProfile.getAnalytics()
 		await asyncio.sleep(0)
@@ -309,13 +322,20 @@ class AsyncBookManager(AsyncTaskManager):
 		await asyncio.sleep(0)
 
 	async def getOrderBook(self): #read
-
-		OrderBook = self.pullTableContents(self.orderBookRef)
+		orderBook = self.pullTableContents(self.orderBookRef)
 		await asyncio.sleep(0)
-		return OrderBook
+		return orderBook
 
 	async def getPositionBook(self): #read
-	
-		PositionBook = self.pullTableContents(self.posBookRef)
+		positionBook = self.pullTableContents(self.posBookRef)
 		await asyncio.sleep(0)
-		return PositionBook
+		return positionBook
+
+	"""
+	async def getReturns(self): #read
+		positionBook = self.pullTableContents(self.posBookRef)
+		positionBook = positionBook[1:]
+		returns = [p.returns in positionBook if p.returns != None]
+		await asyncio.sleep(0)
+		return returns
+	"""

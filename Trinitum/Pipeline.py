@@ -37,7 +37,7 @@ class Formatter(object):
 
 	def __init__(self): pass
 
-	def formatStratData(self, sdDict, tiDict, vwap=False):
+	def formatStratData(self, sdDict, tiDict, customDataDict, vwap=False):
 
 		stratData = {
 		'price': float(sdDict['price']),
@@ -52,7 +52,7 @@ class Formatter(object):
 			else: formattedTiDict.update({k:v})
 
 		stratData.update(formattedTiDict)
-		return stratData
+		return {**stratData, **customDataDict} # merged stratData & customDataDict
 
 	def generateVWAP(self, histDF): 
 		from numpy import cumsum

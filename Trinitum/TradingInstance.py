@@ -14,8 +14,10 @@ class TradingInstance(object):
 		self.strategy, self.profile = strategy, profile
 		self.auth, self.exchange, self.symbol, self.quantity = (None,)*4
 				
-		from .Constants import DEFAULT_IND_LAG, DEFAULT_SYS_LAG 
-		self.indicatorLag, self.systemLag = DEFAULT_IND_LAG, DEFAULT_SYS_LAG
+		from .Constants import DEFAULT_IND_LAG, DEFAULT_SYS_LAG, 
+		DEFAULT_CUSTOM_LOGIC, DEFAULT_CUSTOM_DATA 
+		self.indicatorLag, self.systemLag = DEFAULT_IND_LAG, DEFAULT_SYS_LAG, 
+		self.customLogic, self.customData = DEFAULT_CUSTOM_LOGIC, DEFAULT_CUSTOM_DATA, 
 
 		self.conn = None
 		self.dbRef = None
@@ -76,9 +78,9 @@ class TradingInstance(object):
 	for calculating the specified TA-Lib indicators in real time, and sending them out
 	to the TechIndicators table in the RethinkDB instance.
 	"""
-	def generateTechIndObjects(self, histDF):
+	def generateTechIndObjects(self, histDF, indicators):
 		from realtime_talib import Indicator
-		return [Indicator(histDF,k,*v) for k,v in self.strategy.indicators.items()]
+		return [Indicator(histDF,ind,*args) for ind,args in indicators]
 
 	"""
 	The createLoggerInstance function imports and creates a Logger object, which is responsible 
@@ -93,40 +95,56 @@ class TradingInstance(object):
 	"""
 	The start function creates the RethinkDB instance 
 	"""
-	def start(self):
-	
+	def start(self, endTime, histInterval, histPeriod, indicators):
+
+		sysInit = 'TRADING_INSTANCE ' + self.name + ' SETUP COMMENCING'
+		self.logger.addEvent('system', sysInit)
+		
+		#### CREATE RDB TABLES ####
 		self.initDatabase()
 		#self.initPipelineTables()
 		#self.initStatisticsTables()
 		self.initTradingTable()
 		self.initBookTables()
 
+		#### DATABASE MANAGER INSTANTIATION && SETUP #####
 		from .DatabaseManager import DatabaseManager
 		self.databaseManager = DatabaseManager(self.dbRef, self.conn, self.auth, self.logger)
 		self.databaseManager.setTradingParameters(self.symbol, self.quantity, self.strategy, self.profile)
 
-	def run(self, endTime, histInterval, histPeriod, endCode): 
-
+		#### GENERATE HISTORICAL DATA, INDICATOR OBJECTS, PASS INTO DATABASE MANAGER
 		from .Pipeline import Pipeline
 		plInstance = Pipeline(histInterval)
 		histData = plInstance.getCryptoHistoricalData(self.symbol, endTime, histPeriod)
-		rttInds = self.generateTechIndObjects(histData)
+		rttInds = self.generateTechIndObjects(histData, indicators)
 		self.DatabaseManager.setPipelineParameters(self.symbol, rttInds)
 
-		sysStart = 'TRADING_INSTANCE ' + self.name + ' INIT'
+		sysSetup = 'TRADING_INSTANCE ' + self.name + ' SETUP COMPLETE'
+		self.logger.addEvent('system', sysSetup)
+
+	def run(self, endTime, endCode, runTime): 
+
+		from .Utilities import dateToUNIX
+		endTimeUNIX = dateToUNIX(endTime)
+		sysBegin = 'TRADING_INSTANCE ' + self.name + ' INIT @ ' + str(endTimeUNIX)
 		self.logger.addEvent('system', sysStart)
 
-		while (endTimeUNIX > getCurrentTimeUNIX()):
-			self.runSystemLogic()
+		if runTime == None:
+			while (endTimeUNIX > getCurrentTimeUNIX()):
+				self.runSystemLogic()
+		else:
+			for t in range(runTime):
+				self.runSystemLogic()
+
 		self.end(endCode)
 
 	def runSystemLogic(self):
 
 		try:
-
 			#### UPDATE STATISTICS AND UPDATE STRATEGY/RISK DATA ####
 			self.databaseManager.execute("pipeline", "updateSpotData")
 			self.databaseManager.execute("pipeline", "updateTechIndicators", self.indicatorLag)
+			self.databaseManager.execute("pipeline", "runCustomDataFeeds")
 			self.databaseManager.read("pipeline", "getPipelineData")
 			self.databaseManager.write("statistics", "updateCapitalStatistics")
 			self.databaseManager.execute('statistics', 'updateRiskStatistics')
@@ -177,19 +195,24 @@ class TradingInstance(object):
 		from .Constants import SOFT_EXIT, HARD_EXIT
 		#TODO: Verify the safety and robustness of the SOFT_EXIT
 
-		if (endCode == SOFT_EXIT): 
+		if endCode == SOFT_EXIT: 
 			try:
 				self.logger.addEvent('system', "SOFT_EXIT INITIATED. ALL ONGOING TRADES BEING FINALIZED.")
+				"""
 				tradingRef = self.dbRef.table("PositionCache")
 				while (int(tradingRef.count().run(self.conn)) > 0):
 					self.runSystemLogic()
+				"""
+				while (self.databaseManager.classDict['trading'].getCacheSize() > 0):
+					self.runSystemLogic()
+
 			except BaseException as e:
 				from .Utilities import getStackTrace
 				stackTrace = getStackTrace(e)
 				self.logger.addEvent('system', ('SOFT_EXIT_FAILURE: ' + str(e)))
 				self.logger.addEvent('system', ('SOFT_EXIT_FAILURE_STACKTRACE: ' + str(stackTrace)))
 
-		if (endCode == HARD_EXIT):
+		if endCode == HARD_EXIT:
 			try:
 				self.logger.addEvent('system', "HARD_EXIT INITIATED. ALL ONGOING TRADES TERMINATED.")
 				self.databaseManager.read('trading', 'exitValidPositions', HARD_EXIT)

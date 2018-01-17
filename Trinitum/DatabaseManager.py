@@ -18,6 +18,9 @@ class DatabaseManager(object):
 	
 		self.rwQueue = AsyncReadWriteQueue(self.classDict)
 
+	def addCustomData(self, data):
+		self.classDict['pipeline'].customData = data
+
 	def setTradingParameters(self, symbol, quantity, strategy, profile):
 		self.classDict['strategy'].strategy = strategy
 		tradingClass = self.classDict['trading']

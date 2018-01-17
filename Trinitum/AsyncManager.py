@@ -114,7 +114,7 @@ class AsyncStatisticsManager(AsyncTaskManager):
 	def getReturns(self): 
 		positionBook = self.pullTableContents(self.positionBookRef)
 		positionBook = positionBook[1:]
-		return [p.returns in positionBook if p.returns != None]
+		return [p.returns for p in positionBook if p.returns != None]
 
 	async def updateRiskStatistics(self):
 		from .Pipeline import getRiskFreeRate

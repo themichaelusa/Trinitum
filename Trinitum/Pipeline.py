@@ -26,7 +26,7 @@ class Pipeline(object):
 		poloniexJson = requests.get(poloniexJsonURL).json()
 
 		from pandas import DataFrame
-		histDataframe = pd.DataFrame.from_records(poloniexJson)
+		histDataframe = DataFrame.from_records(poloniexJson)
 		histDataframe.drop('quoteVolume', axis=1, inplace=True)
 		histDataframe.drop('weightedAverage', axis=1, inplace=True)
 		histDataframe['date'] = histDataframe['date'].astype(float)

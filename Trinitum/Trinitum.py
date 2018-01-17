@@ -24,8 +24,9 @@ class TrinitumInstance(object):
 	def __init__(self, name, symbol, quantity, sandbox=False):
 		self.name, self.symbol, self.quantity = name, symbol, quantity
 		self.exchange, self.key, self.password, self.secret = (None,)*4
-		self.strategy, self.profile, self.indicators = (None,)*3
+		self.strategy, self.profile = (None,)*2
 		self.histInterval, self.histPeriod = (300,)*2
+		self.indicators = {}
 
 		from .Constants import DEFAULT_IND_LAG, DEFAULT_SYS_LAG
 		self.indicatorLag, self.systemLag = DEFAULT_IND_LAG, DEFAULT_SYS_LAG
@@ -38,7 +39,7 @@ class TrinitumInstance(object):
 		self.strategy = Strategy(stratName, stratRef)
 
 	def addIndicator(self, indicator, *indArgs):
-		self.indicators.update({indicator: *indArgs})
+		self.indicators.update({indicator: indArgs})
 
 	def addRiskProfile(self, rpName, riskRef, params={}):
 		from .RiskProfile import RiskProfile
@@ -101,7 +102,7 @@ class Gem(TrinitumInstance):
 		tri.createLoggerInstance((self.name + 'syslog'))
 
 		tri.start(endTime, self.histInterval, self.histPeriod, self.indicators.items())
-		tri.run(endTime, self.histInterval, self.histPeriod, endCode, self.runLimit)	
+		tri.run(endTime, endCode, self.runLimit)	
 	
 class Template:
 	@staticmethod

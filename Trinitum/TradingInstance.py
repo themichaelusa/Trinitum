@@ -14,10 +14,11 @@ class TradingInstance(object):
 		self.strategy, self.profile = strategy, profile
 		self.auth, self.exchange, self.symbol, self.quantity = (None,)*4
 				
-		from .Constants import DEFAULT_IND_LAG, DEFAULT_SYS_LAG, 
-		DEFAULT_CUSTOM_LOGIC, DEFAULT_CUSTOM_DATA 
-		self.indicatorLag, self.systemLag = DEFAULT_IND_LAG, DEFAULT_SYS_LAG, 
-		self.customLogic, self.customData = DEFAULT_CUSTOM_LOGIC, DEFAULT_CUSTOM_DATA, 
+		from .Constants import (DEFAULT_IND_LAG, DEFAULT_SYS_LAG, 
+			DEFAULT_CUSTOM_LOGIC, DEFAULT_CUSTOM_DATA)
+
+		self.indicatorLag, self.systemLag = DEFAULT_IND_LAG, DEFAULT_SYS_LAG 
+		self.customLogic, self.customData = DEFAULT_CUSTOM_LOGIC, DEFAULT_CUSTOM_DATA
 
 		self.conn = None
 		self.dbRef = None
@@ -56,9 +57,9 @@ class TradingInstance(object):
 	so we can add additional Orders and Positions as the Gem keeps trading.
 	"""
 	def initBookTables(self):
-		#orderBookStr, PositionBookStr = 'OrderBook', 'PositionBook'
-		#self.dbRef.table_create(orderBookStr).run(self.conn)
-		#self.logger.addEvent('database', 'CREATED: ' + orderBookStr)
+		orderBookStr, PositionBookStr = 'OrderBook', 'PositionBook'
+		self.dbRef.table_create(orderBookStr).run(self.conn)
+		self.logger.addEvent('database', 'CREATED: ' + orderBookStr)
 		positionBook = 'PositionBook'
 		self.dbRef.table_create(positionBook).run(self.conn)
 		self.logger.addEvent('database', 'CREATED: ' + positionBook)
@@ -104,7 +105,7 @@ class TradingInstance(object):
 		self.initDatabase()
 		#self.initPipelineTables()
 		#self.initStatisticsTables()
-		self.initTradingTable()
+		#self.initTradingTable()
 		self.initBookTables()
 
 		#### DATABASE MANAGER INSTANTIATION && SETUP #####
@@ -117,7 +118,7 @@ class TradingInstance(object):
 		plInstance = Pipeline(histInterval)
 		histData = plInstance.getCryptoHistoricalData(self.symbol, endTime, histPeriod)
 		rttInds = self.generateTechIndObjects(histData, indicators)
-		self.DatabaseManager.setPipelineParameters(self.symbol, rttInds)
+		self.databaseManager.setPipelineParameters(self.symbol, rttInds)
 
 		sysSetup = 'TRADING_INSTANCE ' + self.name + ' SETUP COMPLETE'
 		self.logger.addEvent('system', sysSetup)
@@ -126,9 +127,9 @@ class TradingInstance(object):
 
 		from .Utilities import dateToUNIX
 		endTimeUNIX = dateToUNIX(endTime)
-		sysBegin = 'TRADING_INSTANCE ' + self.name + ' INIT @ ' + str(endTimeUNIX)
-		self.logger.addEvent('system', sysStart)
-
+		sysBegin = 'TRADING_INSTANCE ' + self.name + ' INIT'
+		self.logger.addEvent('system', sysBegin)
+		"""
 		if runTime == None:
 			while (endTimeUNIX > getCurrentTimeUNIX()):
 				self.runSystemLogic()
@@ -137,6 +138,10 @@ class TradingInstance(object):
 				self.runSystemLogic()
 
 		self.end(endCode)
+		"""
+		#temp drop code
+		from rethinkdb import db_drop
+		db_drop(self.name).run(self.conn)
 
 	def runSystemLogic(self):
 

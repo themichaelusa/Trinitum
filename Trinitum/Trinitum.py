@@ -30,7 +30,7 @@ class TrinitumInstance(object):
 
 		from .Constants import DEFAULT_IND_LAG, DEFAULT_SYS_LAG
 		self.indicatorLag, self.systemLag = DEFAULT_IND_LAG, DEFAULT_SYS_LAG
-		self.customLogic, self.customData = None, {}
+		self.customLogic, self.customData, self.customTables = None, {}, []
 		self.sandbox = sandbox
 		self.runLimit = None
 
@@ -49,13 +49,16 @@ class TrinitumInstance(object):
 		else:
 			self.profile = RiskProfile(rpName, params)
 
-		self.profile.riskRef = riskRef
+		self.strategy.riskRef = riskRef
 
 	def addRiskAnalytic(self, name):
 		self.profile.addAnalytic(name)
 
 	def setHistDataParams(self, histInterval=300, histPeriod=300):
 		self.histInterval, self.histPeriod = histInterval, histPeriod
+
+	def setRunLimit(self, times=None):
+		self.runLimit = times
 
 	def addCustomDataFeed(self, name, ref, *args): 
 		if self.sandbox:
@@ -65,13 +68,9 @@ class TrinitumInstance(object):
 		if self.sandbox:
 			self.sysLogic = logic
 
-	def setRunLimit(self, times=None):
-		self.runLimit = times
-
-	"""
-	def importLiveData(self, location="DataBank", name=None): pass
-	def importDataSet(self, location="DataBank", name=None): pass
-	"""
+	def addCustomTable(self, name):
+		if self.sandbox:
+			self.customTables.append(name)
 
 class Gem(TrinitumInstance):
 	
@@ -91,7 +90,7 @@ class Gem(TrinitumInstance):
 	def addAdvancedParameters(self, indicatorLag=1, systemLag=0):
 		self.indicatorLag, self.systemLag = indicatorLag, systemLag
 
-	def run(self, endTime, endCode=0):
+	def run(self, endTime='', endCode=0):
 		from .TradingInstance import TradingInstance
 		tri = TradingInstance(self.name, self.strategy, self.profile)
 		endTime = endTime.replace('/', '')
@@ -101,7 +100,8 @@ class Gem(TrinitumInstance):
 		tri.setLagParams(self.indicatorLag, self.systemLag)
 		tri.createLoggerInstance((self.name + 'syslog'))
 
-		tri.start(endTime, self.histInterval, self.histPeriod, self.indicators.items())
+		tri.start(endTime, self.histInterval, self.histPeriod, self.indicators.items(), self.customTables)
+		#### TODO: DELETE ALL CLASS VARIABLES ####
 		tri.run(endTime, endCode, self.runLimit)	
 	
 class Template:

@@ -21,13 +21,13 @@ class ResultFormatter(object):
 
 	def getFormattedResults(self, rStats, cStats, oBook, pBook):
 		self.booksToCSV(oBook, pBook)
-		self.statsToTXT(cStats, rStats)
+		#self.statsToTXT(cStats, rStats)
 		self.generateResultsFolder()
 
 	def generateResultsFolder(self):
 		from subprocess import call
 		call(['mkdir', self.results])
-		call(['mv', self.statsTXT, self.results])
+		#call(['mv', self.statsTXT, self.results])
 		call(['mv', self.ordersCSV, self.results])
 		call(['mv', self.positionsCSV, self.results])
 		call(['mv', (self.logName), self.results])

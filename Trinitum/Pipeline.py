@@ -2,7 +2,6 @@
 class Pipeline(object):
 
 	def __init__(self, interval): 
-
 		self.interval = interval
 		self.POLO_URL = 'https://poloniex.com/public'
 		self.POLO_HIST_DATA = self.POLO_URL + '?command=returnChartData&currencyPair={}&start={}&end={}&period={}'
@@ -37,22 +36,19 @@ class Formatter(object):
 
 	def __init__(self): pass
 
-	def formatStratData(self, sdDict, tiDict, customDataDict, vwap=False):
-
+	def formatStratData(self, sdDict, tiDict, vwap=False):
 		stratData = {
-		'price': float(sdDict['price']),
+		'price': float(sdDict['last']),
 		'volume': float(sdDict['volume'])
 		}
 
-		#tiDict.pop('id')
 		formattedTiDict = {}
 		for k,v in tiDict.items():
 			unnecessaryTuple = type(v) == list and len(v) == 1  
 			if (unnecessaryTuple): formattedTiDict.update({k:v[0]})
 			else: formattedTiDict.update({k:v})
 
-		stratData.update(formattedTiDict)
-		return {**stratData, **customDataDict} # merged stratData & customDataDict
+		return {**stratData, **formattedTiDict} # merged stratData & formattedTiDict
 
 	def generateVWAP(self, histDF): 
 		from numpy import cumsum

@@ -5,7 +5,6 @@ import rethinkdb as r
 class AsyncTaskManager(object):
 
 	def __init__(self, dbReference, connection, logger): 
-		
 		self.funcDict = {}
 		self.connection = connection
 		self.dbReference = dbReference
@@ -21,7 +20,6 @@ class AsyncTaskManager(object):
 class AsyncPipelineManager(AsyncTaskManager):
 
 	def __init__(self, dbReference, connection, logger): 		
-
 		super().__init__(dbReference, connection, logger)
 		from .Pipeline import Formatter
 		from gdax import PublicClient
@@ -29,31 +27,29 @@ class AsyncPipelineManager(AsyncTaskManager):
 		self.formatter = Formatter()
 		self.gdaxPublicClient = PublicClient()
 		self.symbol, self.techInds, self.spotInds, self.spotCustom = (None,)*4
-	
+		self.indicatorLag = None
+
 		from .Constants import DEFAULT_SPOT_DATA_DICT, DEFAULT_CUSTOM_DATA
 		self.spotData = DEFAULT_SPOT_DATA_DICT
 		self.customDataFeeds = DEFAULT_CUSTOM_DATA
+		self.customTables = None
 
-	async def updateSpotData(self): #write
+	async def updateDefaultFeeds(self):		
+		#### UPDATE SPOT DATA DICT ####
 		try:
-			spotData = dict(self.gdaxPublicClient.get_product_ticker(self.symbol))
-			self.spotData['price'] = float(spotData['price'])
-			self.spotData['volume']	= float(spotData['volume'])
-
+			spotData = self.gdaxPublicClient.get_product_24hr_stats(self.symbol)
+			spotData.pop('volume_30day')
+			self.spotData = {k:float(v) for k,v in spotData.items()}
 		except BaseException as e: 
 			self.logger.addEvent('trading', ('UPDATE_SPOT_DATA_ERROR: ' + str(e)))
 
-		await asyncio.sleep(0)
-
-	async def updateTechIndicators(self, lag=1): #write
+		#### UPDATE REALTIME TA-LIB INDICATORS ####
 		try:
-			OHLCV = list(self.gdaxPublicClient.get_product_24hr_stats(self.symbol).values())[:3]
+			OHLCV = list(self.spotData.values())[:5]		
 			OHLCV = [float(data) for data in OHLCV]
-			OHLCV.extend([self.spotData['price'], self.spotData['volume']])
-
+			OHLCV[3], OHLCV[4] = OHLCV[4], OHLCV[3]
 			for ind in self.techInds:
-				self.spotInds[ind.tbWrapper.indicator] = ind.getRealtime(OHLCV, lag)
-			
+				self.spotInds[ind.tbWrapper.indicator] = ind.getRealtime(OHLCV, self.indicatorLag)	
 		except BaseException as e: 
 			self.logger.addEvent('trading', ('UPDATE_TECH_INDS_ERROR: ' + str(e)))
 
@@ -68,9 +64,13 @@ class AsyncPipelineManager(AsyncTaskManager):
 		await asyncio.sleep(0)
 
 	async def getPipelineData(self): #read
-		formattedStratData = self.formatter.formatStratData(self.spotData, self.spotInds, self.spotCustom)
+		formattedStratData = self.formatter.formatStratData(self.spotData, self.spotInds)
+		formattedDataDict = {**formattedStratData, **self.spotCustom}
 		await asyncio.sleep(0)
-		return formattedStratData
+		if self.customTables is not None:
+			return formattedDataDict, self.customTables
+		else:
+			return formattedDataDict
 
 class AsyncStrategyManager(AsyncTaskManager):
 	
@@ -108,7 +108,7 @@ class AsyncStatisticsManager(AsyncTaskManager):
 
 		from .Constants import DEFAULT_CAPITAL_DICT
 		self.capitalStats = DEFAULT_CAPITAL_DICT
-		self.riskStats, self.riskProfile = (None,)*2
+		self.riskStats, self.riskProfile = {'FUNDS': None}, None
 		self.positionBookRef = self.dbReference.table('PositionBook')
 
 	def getReturns(self): 
@@ -118,14 +118,12 @@ class AsyncStatisticsManager(AsyncTaskManager):
 
 	async def updateRiskStatistics(self):
 		from .Pipeline import getRiskFreeRate
-		self.riskProfile.updateRiskFree(getRiskFreeRate())
-		self.riskProfile.updateReturns(getReturns())
-		
+		self.riskProfile.updateRiskFreeRate(getRiskFreeRate())
+		self.riskProfile.updateReturns(self.getReturns())
 		self.riskStats = self.riskProfile.getAnalytics()
 		await asyncio.sleep(0)
 
 	async def updateCapitalStatistics(self, logCapital=False):
-
 		try:	
 			accountData = list(self.gdaxAuthClient.get_accounts())
 			acctDataUSD = list(filter(lambda x: x['currency'] == "USD", accountData))
@@ -142,7 +140,8 @@ class AsyncStatisticsManager(AsyncTaskManager):
 
 		await asyncio.sleep(0)
 
-	def getRiskStats(self, pullRiskParams=False): 
+	def getRiskStats(self, availibleFunds, pullRiskParams=False):
+		self.riskStats['FUNDS'] = availibleFunds
 		if pullRiskParams:
 			return self.riskStats, self.riskProfile.parameters
 		else:
@@ -163,15 +162,13 @@ class AsyncTradingManager(AsyncTaskManager):
 		self.gdaxAuthClient = AuthenticatedClient(*authData)
 	
 	def getCacheSize(self):
-		return self.positionCache.keys().size()
+		return len(list(self.positionCache.keys()))
 
 	def validPosLimitCheck(self):
 		return bool(self.positionCache.size() <= self.riskParams['posLimit'])
 
 	async def createOrders(self, stratVerdict): #read
-
-		entryOrder = None
-		validEntryVerdict = (stratVerdict == 1)
+		entryOrder, validEntryVerdict = 0, (stratVerdict == 1)
 
 		if (validEntryVerdict and self.validPosLimitCheck()):
 			from .Order import Order
@@ -183,9 +180,7 @@ class AsyncTradingManager(AsyncTaskManager):
 		return entryOrder
 
 	async def verifyAndEnterPosition(self, entryOrder, currentCapital, spotPrice): #read
-
-		newPosition = None
-		validEntryConditions = entryOrder is not None and currentCapital > 0
+		newPosition, validEntryConditions = None, (entryOrder is not None and currentCapital > 0)
 
 		if validEntryConditions: 
 			fundToleranceAvailible = currentCapital*self.riskParams['tolerance'] > self.quantity			
@@ -202,7 +197,6 @@ class AsyncTradingManager(AsyncTaskManager):
 					entryOrder.setErrorCode(timedOut)
 					orderTimeOut = 'Order: ' + str(orderID) + ' ' + timedOut
 					self.logger.addEvent('trading', orderTimeOut)
-
 				else:
 					noErrors = 'NO_ERRORS'
 					entryOrder.setOrderID(orderID)
@@ -227,15 +221,10 @@ class AsyncTradingManager(AsyncTaskManager):
 		return ([entryOrder], newPosition)
 
 	async def exitValidPositions(self, stratVerdict): #read
-
-		#positionCache = self.pullTableContents(self.pCacheRef)
-		#validExitConditions = stratVerdict == -1 and positionCache != []
-		pCacheSize = self.getCacheSize()
-		validExitConditions = stratVerdict == -1 and pCacheSize > 0
+		validExitConditions = stratVerdict == -1 and self.getCacheSize() > 0
 		completedPositions, exitOrders = [None], [None]
 
 		if validExitConditions:
-
 			self.logger.addEvent('strategy', 'POSITION EXIT CONDITIONS VALID')
 			sellResponses, completedPositions, exitOrders, response = [], [], [], None
 			self.gdaxAuthClient.cancel_all(product=self.symbol)
@@ -243,7 +232,6 @@ class AsyncTradingManager(AsyncTaskManager):
 			from .Order import Order
 
 			for p in self.positionCache.values():
-
 				from .Constants import GDAX_FUNDS_ERROR
 				while (response == GDAX_FUNDS_ERROR or response == None):
 					response = dict(self.gdaxAuthClient.sell(product_id=self.symbol, type='market', funds=self.quantity))
@@ -262,11 +250,7 @@ class AsyncTradingManager(AsyncTaskManager):
 				exitOrders.append(exitOrder)
 				response = None
 
-			#time.sleep(1)
-			self.positionCache.clear()
-
 			for posit, response in zip(completedPositions, sellResponses):
-				
 				exitedPos = "Exited Position:" + posit.exID
 				self.logger.addEvent('trading', exitedPos)
 
@@ -277,21 +261,10 @@ class AsyncTradingManager(AsyncTaskManager):
 				except BaseException as e: 
 					self.logger.addEvent('trading', ('GDAX_AUTHCLIENT_GETORDER_ERROR: ' + str(e)))
 
-			self.pCacheRef.delete().run(self.connection)			
+			self.positionCache.clear()
 		
 		await asyncio.sleep(0)
 		return (exitOrders, completedPositions)
-
-	"""
-	async def addToPositionCache(self, position): #write
-
-		if (position is not None):
-			from .Utilities import getObjectDict
-			pDict = getObjectDict(position)
-			self.pCacheRef.insert(pDict).run(self.connection)
-		
-		await asyncio.sleep(0)
-	"""
 
 class AsyncBookManager(AsyncTaskManager):
 	
@@ -330,12 +303,3 @@ class AsyncBookManager(AsyncTaskManager):
 		positionBook = self.pullTableContents(self.posBookRef)
 		await asyncio.sleep(0)
 		return positionBook
-
-	"""
-	async def getReturns(self): #read
-		positionBook = self.pullTableContents(self.posBookRef)
-		positionBook = positionBook[1:]
-		returns = [p.returns in positionBook if p.returns != None]
-		await asyncio.sleep(0)
-		return returns
-	"""

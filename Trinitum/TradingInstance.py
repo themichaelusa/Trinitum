@@ -19,6 +19,7 @@ class TradingInstance(object):
 
 		self.indicatorLag, self.systemLag = DEFAULT_IND_LAG, DEFAULT_SYS_LAG 
 		self.customLogic, self.customData = DEFAULT_CUSTOM_LOGIC, DEFAULT_CUSTOM_DATA
+		self.customTableRefs = {}
 
 		self.conn = None
 		self.dbRef = None
@@ -29,7 +30,7 @@ class TradingInstance(object):
 	The initDatabase function has one purpose; create a local RethinkDB
 	instance using the name provided by the Gem class.
 	"""
-	def initDatabase(self, hostname="localhost", port=28015): 
+	def initDatabase(self, hostname="localhost", port=28015, customTables=[]): 
 
 		#from Utilities import createRDB_Instance
 		#createRDB_Instance()
@@ -40,6 +41,11 @@ class TradingInstance(object):
 		r.db_create(self.name).run(r.connect(hostname, port))
 		self.conn = r.connect(hostname, port)
 		self.dbRef = r.db(self.name)
+
+		for t in customTables:
+			self.dbRef.table_create(t).run(self.conn)
+			self.customTableRefs.update({t:self.dbRef.table(t)})
+			self.logger.addEvent('database', 'CUSTOM TABLE CREATED: ' + t)
 
 	"""
 	The initTradingTable function has one purpose; create a PositionCache table
@@ -96,29 +102,26 @@ class TradingInstance(object):
 	"""
 	The start function creates the RethinkDB instance 
 	"""
-	def start(self, endTime, histInterval, histPeriod, indicators):
+	def start(self, endTime, histInterval, histPeriod, indicators, custTables):
 
-		sysInit = 'TRADING_INSTANCE ' + self.name + ' SETUP COMMENCING'
+		sysInit = 'TRADING_INSTANCE ' + self.name + ' SETUP INIT'
 		self.logger.addEvent('system', sysInit)
 		
-		#### CREATE RDB TABLES ####
-		self.initDatabase()
-		#self.initPipelineTables()
-		#self.initStatisticsTables()
-		#self.initTradingTable()
+		#### INIT RDB INSTANCE && CREATE TABLES ####
+		self.initDatabase(customTables=custTables)
 		self.initBookTables()
 
 		#### DATABASE MANAGER INSTANTIATION && SETUP #####
 		from .DatabaseManager import DatabaseManager
 		self.databaseManager = DatabaseManager(self.dbRef, self.conn, self.auth, self.logger)
-		self.databaseManager.setTradingParameters(self.symbol, self.quantity, self.strategy, self.profile)
+		self.databaseManager.setTradingParameters(self.symbol, self.quantity, self.strategy, self.profile, self.profile.parameters)
 
 		#### GENERATE HISTORICAL DATA, INDICATOR OBJECTS, PASS INTO DATABASE MANAGER
 		from .Pipeline import Pipeline
 		plInstance = Pipeline(histInterval)
 		histData = plInstance.getCryptoHistoricalData(self.symbol, endTime, histPeriod)
 		rttInds = self.generateTechIndObjects(histData, indicators)
-		self.databaseManager.setPipelineParameters(self.symbol, rttInds)
+		self.databaseManager.setPipelineParameters(self.symbol, rttInds, self.indicatorLag, self.customTables)
 
 		sysSetup = 'TRADING_INSTANCE ' + self.name + ' SETUP COMPLETE'
 		self.logger.addEvent('system', sysSetup)
@@ -129,39 +132,36 @@ class TradingInstance(object):
 		endTimeUNIX = dateToUNIX(endTime)
 		sysBegin = 'TRADING_INSTANCE ' + self.name + ' INIT'
 		self.logger.addEvent('system', sysBegin)
-		"""
+		
 		if runTime == None:
 			while (endTimeUNIX > getCurrentTimeUNIX()):
 				self.runSystemLogic()
 		else:
 			for t in range(runTime):
 				self.runSystemLogic()
-
 		self.end(endCode)
-		"""
-		#temp drop code
-		from rethinkdb import db_drop
-		db_drop(self.name).run(self.conn)
 
 	def runSystemLogic(self):
-
 		try:
 			#### UPDATE STATISTICS AND UPDATE STRATEGY/RISK DATA ####
-			self.databaseManager.execute("pipeline", "updateSpotData")
-			self.databaseManager.execute("pipeline", "updateTechIndicators", self.indicatorLag)
+			self.databaseManager.execute("pipeline", "updateDefaultFeeds")
 			self.databaseManager.execute("pipeline", "runCustomDataFeeds")
-			self.databaseManager.read("pipeline", "getPipelineData")
 			self.databaseManager.write("statistics", "updateCapitalStatistics")
 			self.databaseManager.execute('statistics', 'updateRiskStatistics')
+			self.databaseManager.processTasks()
 
+			self.databaseManager.read("pipeline", "getPipelineData")
 			stratData = self.databaseManager.processTasks()
+
 			spotPrice = stratData['price']
-			riskData = self.databaseManager.classDict['statistics'].getRiskStats()
+			availibleFunds = self.databaseManager.classDict['statistics'].getCapitalStats()['capital']
+			riskData = self.databaseManager.classDict['statistics'].getRiskStats(availibleFunds)
 
 			#### TRY ENTRY STRATEGY, PLACE ORDERS, ENTER POSITIONS ####
 			self.databaseManager.execute("strategy", "tryEntryStrategy", stratData, riskData)
 			stratVerdict = self.databaseManager.processTasks()
 
+			"""
 			self.databaseManager.execute('trading', 'createOrders', stratVerdict)
 			entryOrder = self.databaseManager.processTasks()
 			potentialEntryOrder = bool(entryOrder != None)
@@ -184,6 +184,7 @@ class TradingInstance(object):
 			self.databaseManager.write('books', 'addToPositionBook', completedPositions)
 			self.databaseManager.write('books', 'addToOrderBook', filledExitOrders)
 			self.databaseManager.processTasks(), time.sleep(self.systemLag)
+			"""
   			
 		except BaseException as e:
 			from .Utilities import getStackTrace
@@ -203,11 +204,6 @@ class TradingInstance(object):
 		if endCode == SOFT_EXIT: 
 			try:
 				self.logger.addEvent('system', "SOFT_EXIT INITIATED. ALL ONGOING TRADES BEING FINALIZED.")
-				"""
-				tradingRef = self.dbRef.table("PositionCache")
-				while (int(tradingRef.count().run(self.conn)) > 0):
-					self.runSystemLogic()
-				"""
 				while (self.databaseManager.classDict['trading'].getCacheSize() > 0):
 					self.runSystemLogic()
 

@@ -1,3 +1,4 @@
+import empyrical
 
 class RiskProfile(object):
 
@@ -17,14 +18,12 @@ class RiskProfile(object):
     def addAnalytic(self, analyticName):
         self.analyticsList.append(analyticName)
 
-    def getAnalytics(self, funds):
+    def getAnalytics(self):
         analytics = {a:self.analyticsObj.getAnalytic(a) for a in self.analyticsList}
-        analytics.update({'FUNDS': funds})
         return analytics
         
 class RiskAnalytics(object):
     
-    import empyrical
     def __init__(self):
 
         self.funcDict = {
@@ -39,13 +38,27 @@ class RiskAnalytics(object):
         'DOWNSIDE_RISK': self.getDownsideRisk,
         'CALMAR_RATIO': self.getCalmarRatio,
         'SORTINO_RATIO': self.getSortinoRatio,
-        'OMEGA_RATIO': self.getOmegaRatio
+        'OMEGA_RATIO': self.getOmegaRatio,
+        'KELLY': self.getKellyCriterion
         }
 
         self.returns, self.riskFreeRate = None, None
 
     def getAnalytic(self, key):
         return float(self.funcDict[key]())
+
+    def getKellyCriterion(self): 
+        winsCount, lossesCount = 0, 0
+        for r in self.returns:
+            if r >= 0:
+                winsCount += 1
+            else:
+                lossesCount += 1
+
+        probWin = winsCount/(winsCount+lossesCount)
+        probLoss = 1-probWin
+        wlRatio = probWin/probLoss
+        return probWin - probLoss/wlRatio
     
     def getMaxDrawdown(self):
         return empyrical.max_drawdown(self.returns)

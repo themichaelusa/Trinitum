@@ -2,7 +2,6 @@
 class DatabaseManager(object):
 
 	def __init__(self, dbReference, conn, auth, logger):
-		
 		from .AsyncManager import AsyncPipelineManager, AsyncStrategyManager
 		from .AsyncManager import AsyncStatisticsManager, AsyncTradingManager
 		from .AsyncManager import AsyncBookManager
@@ -21,18 +20,21 @@ class DatabaseManager(object):
 	def addCustomData(self, data):
 		self.classDict['pipeline'].customData = data
 
-	def setTradingParameters(self, symbol, quantity, strategy, profile):
+	def setTradingParameters(self, symbol, quantity, strategy, profile, rParams):
 		self.classDict['strategy'].strategy = strategy
 		tradingClass = self.classDict['trading']
 		tradingClass.symbol = symbol
 		tradingClass.quantity = quantity
-		tradingClass.profile = profile
+		tradingClass.params = rParams
+		self.classDict['statistics'].riskProfile = profile
 
-	def setPipelineParameters(self, symbol, inds):
+	def setPipelineParameters(self, symbol, inds, lag, customTables):
 		plRef = self.classDict['pipeline']
 		plRef.symbol = symbol
 		plRef.techInds = inds
+		plRef.indicatorLag = lag
 		plRef.spotInds = {ind.tbWrapper.indicator: None for ind in inds}
+		plRef.customTables = customTables
 
 	def read(self, tableName, operation, *opargs): 
 		self.rwQueue.cdRead(tableName, operation, *opargs)
@@ -48,8 +50,9 @@ class DatabaseManager(object):
 
 	def collectInstData(self):	
 		statistics, books = "statistics", "books"
-		self.read(statistics, "pullRiskStatistics")
-		self.read(statistics, "pullCapitalStatistics")
+		capStats = self.classDict['statistics'].getCapitalStats()
+		riskStats = self.classDict['statistics'].getRiskStats(capStats['capital'])
+
 		self.read(books, "getOrderBook")
 		self.read(books, "getPositionBook")
-		return self.processTasks()
+		return (riskStats, capStats) + self.processTasks()

@@ -4,12 +4,6 @@ class Strategy(object):
 		self.ID = ID
 		self.tradeRef = tradeRef
 		self.riskRef = None
-		#self.indicators = {}
-
-	"""
-	def addIndicator(self, ind, *indArgs):
-		self.indicators.update({ind: indArgs})
-	"""
 
 	def tryTradeStrategy(self, tickData): 
 		result = self.tradeRef(tickData)

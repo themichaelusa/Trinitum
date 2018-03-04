@@ -1,5 +1,5 @@
 # Trinitum
-
+![help](https://github.com/themichaelusa/Trinitum/blob/master/assets/logo.png)
 Algorithmic cryptocurrency trading in as little as 10 lines of Python. USE AT YOUR OWN RISK. 
 
 ## Installation

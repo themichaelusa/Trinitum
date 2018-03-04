@@ -116,18 +116,17 @@ class TradingInstance(object):
 		self.databaseManager = DatabaseManager(self.dbRef, self.conn, self.auth, self.logger)
 		self.databaseManager.setTradingParameters(self.symbol, self.quantity, self.strategy, self.profile, self.profile.parameters)
 
-		#### GENERATE HISTORICAL DATA, INDICATOR OBJECTS, PASS INTO DATABASE MANAGER
+		#### PULL HISTORICAL DATA & GENERATE INDICATOR OBJECTS, PASS INTO DATABASE MANAGER
 		from .Pipeline import Pipeline
 		plInstance = Pipeline(histInterval)
 		histData = plInstance.getCryptoHistoricalData(self.symbol, endTime, histPeriod)
 		rttInds = self.generateTechIndObjects(histData, indicators)
-		self.databaseManager.setPipelineParameters(self.symbol, rttInds, self.indicatorLag, self.customTables)
+		self.databaseManager.setPipelineParameters(self.symbol, rttInds, self.indicatorLag, self.customTableRefs)
 
 		sysSetup = 'TRADING_INSTANCE ' + self.name + ' SETUP COMPLETE'
 		self.logger.addEvent('system', sysSetup)
 
 	def run(self, endTime, endCode, runTime): 
-
 		from .Utilities import dateToUNIX
 		endTimeUNIX = dateToUNIX(endTime)
 		sysBegin = 'TRADING_INSTANCE ' + self.name + ' INIT'
@@ -156,12 +155,12 @@ class TradingInstance(object):
 			spotPrice = stratData['price']
 			availibleFunds = self.databaseManager.classDict['statistics'].getCapitalStats()['capital']
 			riskData = self.databaseManager.classDict['statistics'].getRiskStats(availibleFunds)
+			closedPositionCount = self.databaseManager.classDict['statistics'].getReturnsCount()
 
 			#### TRY ENTRY STRATEGY, PLACE ORDERS, ENTER POSITIONS ####
-			self.databaseManager.execute("strategy", "tryEntryStrategy", stratData, riskData)
+			self.databaseManager.execute("strategy", "tryEntryStrategy", stratData, riskData, pCount=closedPositionCount)
 			stratVerdict = self.databaseManager.processTasks()
 
-			"""
 			self.databaseManager.execute('trading', 'createOrders', stratVerdict)
 			entryOrder = self.databaseManager.processTasks()
 			potentialEntryOrder = bool(entryOrder != None)
@@ -184,7 +183,6 @@ class TradingInstance(object):
 			self.databaseManager.write('books', 'addToPositionBook', completedPositions)
 			self.databaseManager.write('books', 'addToOrderBook', filledExitOrders)
 			self.databaseManager.processTasks(), time.sleep(self.systemLag)
-			"""
   			
 		except BaseException as e:
 			from .Utilities import getStackTrace

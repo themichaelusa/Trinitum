@@ -18,9 +18,11 @@ class RiskProfile(object):
     def addAnalytic(self, analyticName):
         self.analyticsList.append(analyticName)
 
-    def getAnalytics(self):
-        analytics = {a:self.analyticsObj.getAnalytic(a) for a in self.analyticsList}
-        return analytics
+    def getAnalytics(self, noReturns=False):
+        if len(self.analyticsObj.returns) < 2:
+            return {a:None for a in self.analyticsList}
+        else:
+            return {a:self.analyticsObj.getAnalytic(a) for a in self.analyticsList}
         
 class RiskAnalytics(object):
     

@@ -78,13 +78,15 @@ class AsyncStrategyManager(AsyncTaskManager):
 		super().__init__(dbReference, connection, logger)
 		self.strategy = None
 
-	async def tryEntryStrategy(self, tickData, riskData): #execute
-		tradeResult = self.strategy.tryTradeStrategy(tickData) 
-		riskResult = self.strategy.tryRiskStrategy(riskData)
+	async def tryEntryStrategy(self, tickData, riskData, pCount=0): #execute
+		tradeResult = self.strategy.tryTradeStrategy(tickData)
+		if pCount > 2:
+			riskResult = self.strategy.tryRiskStrategy(riskData)
+			stratResult = tradeResult & riskResult
+			if stratResult: 
+				self.logger.addEvent('strategy', 'POSITION ENTRY CONDITIONS VALID')
+			return stratResult
 
-		if (tradeResult == 1 and riskResult == 1): 
-			self.logger.addEvent('strategy', 'POSITION ENTRY CONDITIONS VALID')
-		
 		await asyncio.sleep(0)
 		return tradeResult
 
@@ -149,6 +151,9 @@ class AsyncStatisticsManager(AsyncTaskManager):
 
 	def getCapitalStats(self): 
 		return self.capitalStats
+
+	def getReturnsCount(self):
+		return len(self.riskProfile.analyticsObj.returns)
 	
 class AsyncTradingManager(AsyncTaskManager):
 
@@ -269,7 +274,6 @@ class AsyncTradingManager(AsyncTaskManager):
 class AsyncBookManager(AsyncTaskManager):
 	
 	def __init__(self, dbReference, connection, logger):
-		
 		super().__init__(dbReference, connection, logger)
 		self.orderBookRef = self.dbReference.table('OrderBook')
 		self.posBookRef = self.dbReference.table("PositionBook")
